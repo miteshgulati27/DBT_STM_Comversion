@@ -1,0 +1,81 @@
+================================================================================
+STM ↔ DBT Verifier — Run Steps
+================================================================================
+
+PREREQUISITES
+-------------
+- Python 3.12+ installed
+- Virtual environment created (already done in .venv/)
+
+STEP 1: Activate Virtual Environment
+-------------------------------------
+Windows CMD:
+    cd DBT_STM_Comparison
+    .venv\Scripts\activate
+
+Windows PowerShell:
+    cd DBT_STM_Comparison
+    .\.venv\Scripts\Activate.ps1
+
+Git Bash:
+    cd DBT_STM_Comparison
+    source .venv/Scripts/activate
+
+STEP 2: Install Dependencies (first time only)
+-----------------------------------------------
+    pip install -r requirements.txt
+
+STEP 3: Start the Server
+-------------------------
+    python server/app.py
+
+Server starts at: http://localhost:5000
+
+STEP 4: Use the Web UI
+-----------------------
+1. Open http://localhost:5000 in your browser
+2. Step 1 — Select LOB:
+   - Click "Business Owners Policy" (BOP) or "Commercial Auto" (CA)
+3. Step 2 — Select Model:
+   - Click any model → comparison runs automatically
+   - Or click "Compare All Models" for batch
+4. Step 3 — View Results (4 tabs):
+   - Comparison: Summary bar + side-by-side table (frozen headers, filterable)
+   - STM Data: Source columns, mapping, business rules
+   - SQL Code: Raw DBT SQL (with Jinja if present)
+   - Compiled Code: Fully expanded SQL (macros resolved to real CASE/CTE logic)
+
+REFRESH BEHAVIOR
+-----------------
+- After first comparison, refreshing (F5) auto-reruns with latest files
+- No need to re-select LOB/model — goes straight to updated results
+- Click "Start Over" to pick a different LOB/model
+
+FILE PLACEMENT
+--------------
+    data/stm/              → STM workbooks (.xlsx)
+    data/sql/bop/          → BOP compiled SQL files
+    data/sql/ca/           → CA SQL files (raw Jinja or compiled)
+    data/macros/           → Macro .sql files (used by compiler)
+
+Current files:
+    data/stm/BOP_CVRBL_STM_1.xlsx
+    data/stm/Commercial Auto Data Specifications.xlsx
+    data/sql/bop/ (4 BOP models — already compiled)
+    data/sql/ca/ (6 CA models — raw Jinja, compiled at runtime)
+    data/macros/ (41 macro files)
+
+OUTPUT
+------
+Results saved per run:
+    data/results/<timestamp>/
+        ├── <model_name>.xlsx       # One per model
+        └── run_log.txt             # Full run log
+
+TROUBLESHOOTING
+---------------
+- "Could not match model to any STM tab" → Add alias in model_matcher.py ENTITY_ALIASES
+- Low match rate → Use compiled SQL from dbt target/ folder
+- Port 5000 in use → Change in server/app.py: app.run(port=5001)
+- "0 columns found" → Pure macro file; compiler expands m_int_term automatically
+- Column name mismatch → Check STM for spaces instead of underscores
