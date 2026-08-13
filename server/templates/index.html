@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Step 1: Select LOB / STM -->
+<div id="step-1" class="fade-in">
+    <h2 class="text-2xl font-bold mb-2">Select Line of Business</h2>
+    <p class="text-slate-400 mb-8">Choose which STM to compare against DBT code</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+        <!-- BOP Card -->
+        <div class="lob-card border-2 border-slate-600 rounded-xl p-6 cursor-pointer hover:border-cyan-500 hover:bg-slate-900/50 transition"
+             onclick="selectLob('bop')">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 bg-blue-900 rounded-lg flex items-center justify-center">
+                    <span class="text-xl font-bold text-blue-300">BP</span>
+                </div>
+                <div>
+                    <p class="font-semibold text-white text-lg">Business Owners Policy</p>
+                    <p class="text-sm text-slate-400">BOP Coverables</p>
+                </div>
+            </div>
+            <div class="text-xs text-slate-500" id="bop-info">Loading...</div>
+        </div>
+
+        <!-- CA Card -->
+        <div class="lob-card border-2 border-slate-600 rounded-xl p-6 cursor-pointer hover:border-cyan-500 hover:bg-slate-900/50 transition"
+             onclick="selectLob('ca')">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 bg-emerald-900 rounded-lg flex items-center justify-center">
+                    <span class="text-xl font-bold text-emerald-300">CA</span>
+                </div>
+                <div>
+                    <p class="font-semibold text-white text-lg">Commercial Auto</p>
+                    <p class="text-sm text-slate-400">CA Coverables</p>
+                </div>
+            </div>
+            <div class="text-xs text-slate-500" id="ca-info">Loading...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Step 2: Select Model -->
+<div id="step-2" class="hidden fade-in">
+    <h2 class="text-2xl font-bold mb-2">Select a Model</h2>
+    <p class="text-slate-400 mb-6">Pick a model — comparison starts automatically</p>
+
+    <div class="mb-4">
+        <span class="text-sm text-cyan-400 font-medium" id="selected-lob-label"></span>
+        <span id="model-count" class="text-sm text-slate-400 ml-4"></span>
+    </div>
+
+    <div id="model-list" class="space-y-2 max-h-[500px] overflow-y-auto">
+        <!-- Populated by JS -->
+    </div>
+
+    <div class="mt-8 flex justify-between">
+        <button onclick="goToStep(1)" class="px-6 py-3 bg-slate-700 text-white font-semibold rounded-lg hover:bg-slate-600 transition">
+            &larr; Back
+        </button>
+        <button id="btn-compare-all" onclick="runComparison('all')"
+                class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-500 transition">
+            Compare All Models
+        </button>
+    </div>
+</div>
+
+<!-- Step 3: Results -->
+<div id="step-3" class="hidden fade-in">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex gap-3">
+            <button onclick="goToStep(2)" class="px-4 py-2 bg-slate-700 text-white text-sm font-semibold rounded-lg hover:bg-slate-600 transition">
+                &larr; Back to Models
+            </button>
+            <button onclick="startOver()" class="px-4 py-2 bg-slate-700 text-white text-sm font-semibold rounded-lg hover:bg-slate-600 transition">
+                Start Over
+            </button>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="downloadResults()" class="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-500 transition">
+                Download .xlsx
+            </button>
+            <button onclick="downloadAll()" class="px-4 py-2 bg-slate-600 text-white text-sm font-semibold rounded-lg hover:bg-slate-500 transition">
+                Download All (.zip)
+            </button>
+        </div>
+    </div>
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold">Comparison Results</h2>
+        <p class="text-slate-400" id="results-subtitle"></p>
+    </div>
+
+    <!-- Model Tabs (when multiple models) -->
+    <div id="model-tabs" class="flex gap-2 mb-4 flex-wrap hidden"></div>
+
+    <!-- View Tabs: Comparison | STM Data | SQL Code -->
+    <div class="flex border-b border-slate-700 mb-6">
+        <button onclick="switchView('comparison')" id="view-tab-comparison" class="view-tab px-4 py-2 text-sm font-medium border-b-2 border-cyan-500 text-cyan-400">
+            Comparison
+        </button>
+        <button onclick="switchView('stm')" id="view-tab-stm" class="view-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+            STM Data
+        </button>
+        <button onclick="switchView('sql')" id="view-tab-sql" class="view-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+            SQL Code
+        </button>
+        <button onclick="switchView('compiled')" id="view-tab-compiled" class="view-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+            Compiled Code
+        </button>
+    </div>
+
+    <!-- View: Comparison -->
+    <div id="view-comparison">
+        <!-- Summary Bar -->
+        <div id="summary-bar" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+            <div class="bg-slate-900 border border-slate-700 rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-white" id="summary-stm-total">-</p>
+                <p class="text-sm text-slate-400">STM Columns</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-700 rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-white" id="summary-dbt-total">-</p>
+                <p class="text-sm text-slate-400">DBT Columns</p>
+            </div>
+            <div class="bg-slate-900 border border-green-800 rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-green-400" id="summary-match">-</p>
+                <p class="text-sm text-slate-400">Matched</p>
+            </div>
+            <div class="bg-slate-900 border border-red-800 rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-red-400" id="summary-mismatch">-</p>
+                <p class="text-sm text-slate-400">Mismatched</p>
+            </div>
+            <div class="bg-slate-900 border border-amber-800 rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-amber-400" id="summary-extra">-</p>
+                <p class="text-sm text-slate-400">Extra in DBT</p>
+            </div>
+            <div class="bg-slate-900 border border-cyan-800 rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-cyan-400" id="summary-rate">-</p>
+                <p class="text-sm text-slate-400">Match Rate</p>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="flex gap-2 mb-4">
+            <button onclick="filterResults('all')" class="filter-btn px-3 py-1 text-sm rounded-lg bg-cyan-600 text-white">All</button>
+            <button onclick="filterResults('MATCH')" class="filter-btn px-3 py-1 text-sm rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600">Matching</button>
+            <button onclick="filterResults('MISMATCH')" class="filter-btn px-3 py-1 text-sm rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600">Not Matching</button>
+        </div>
+
+        <!-- Results Table -->
+        <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
+            <table class="w-full text-sm border-collapse sticky-header">
+                <thead>
+                    <tr class="bg-slate-800 text-left">
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">STM Column</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">DBT Column</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Column Compare</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">STM DataType</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">DBT DataType</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">DataType Compare</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">STM SCD</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">DBT SCD</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">SCD Compare</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Column Logic</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Transformation</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Source Expression</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Suggestion</th>
+                    </tr>
+                </thead>
+                <tbody id="results-tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- View: STM Data -->
+    <div id="view-stm" class="hidden">
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold text-white mb-1">STM Columns</h3>
+            <p class="text-sm text-slate-400" id="stm-view-info"></p>
+        </div>
+        <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
+            <table class="w-full text-sm border-collapse sticky-header">
+                <thead>
+                    <tr class="bg-slate-800 text-left">
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">#</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Target Column</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Source Table</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Source Column / Mapping</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Data Type</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Business Rule</th>
+                    </tr>
+                </thead>
+                <tbody id="stm-tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- View: SQL Code -->
+    <div id="view-sql" class="hidden">
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold text-white mb-1">DBT SQL Code (Raw)</h3>
+            <p class="text-sm text-slate-400" id="sql-view-info"></p>
+        </div>
+        <div class="bg-slate-900 border border-slate-700 rounded-lg p-4 overflow-x-auto max-h-[600px] overflow-y-auto">
+            <pre class="text-sm text-slate-200 font-mono whitespace-pre" id="sql-code-content">Loading...</pre>
+        </div>
+    </div>
+
+    <!-- View: Compiled Code -->
+    <div id="view-compiled" class="hidden">
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold text-white mb-1">Compiled SQL (Jinja Resolved)</h3>
+            <p class="text-sm text-slate-400" id="compiled-view-info"></p>
+        </div>
+        <div class="bg-slate-900 border border-slate-700 rounded-lg p-4 overflow-x-auto max-h-[600px] overflow-y-auto">
+            <pre class="text-sm text-slate-200 font-mono whitespace-pre" id="compiled-code-content">Loading...</pre>
+        </div>
+    </div>
+
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div class="bg-slate-800 rounded-xl p-8 text-center">
+        <div class="animate-spin w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p class="text-white font-semibold" id="loading-text">Running comparison...</p>
+        <p class="text-sm text-slate-400 mt-2" id="loading-detail"></p>
+    </div>
+</div>
+{% endblock %}
