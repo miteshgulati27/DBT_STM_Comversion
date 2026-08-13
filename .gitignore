@@ -3,15 +3,8 @@ __pycache__/
 .env
 .venv/
 venv/
-data/stm/*
-data/sql/*
-data/macros/*
 data/results/*
-server/uploads/*
-!data/stm/.gitkeep
-!data/sql/.gitkeep
-!data/macros/.gitkeep
 !data/results/.gitkeep
+server/uploads/*
 !server/uploads/.gitkeep
-*.xlsx
 .DS_Store
