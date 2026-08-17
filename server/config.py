@@ -11,7 +11,6 @@ UPLOAD_DIR = BASE_DIR / "server" / "uploads"
 STM_DIR = DATA_DIR / "stm"
 SQL_DIR = DATA_DIR / "sql"
 MACROS_DIR = DATA_DIR / "macros"
-RESULTS_DIR = DATA_DIR / "results"
 
 ALLOWED_STM_EXTENSIONS = {".xlsx", ".xls", ".xlsm"}
 ALLOWED_SQL_EXTENSIONS = {".sql"}

@@ -372,15 +372,6 @@ async function loadCompiledView() {
     }
 }
 
-// --- Downloads ---
-function downloadResults() {
-    if (!state.currentModel) return;
-    window.location.href = `/api/results/download/${state.currentModel}`;
-}
-
-function downloadAll() {
-    window.location.href = '/api/results/download-all';
-}
 
 // --- Utilities ---
 function showLoading(text, detail) {

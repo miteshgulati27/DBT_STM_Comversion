@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from flask import Flask
 from flask_cors import CORS
-from server.config import MAX_CONTENT_LENGTH, DATA_DIR, RESULTS_DIR, STM_DIR, SQL_DIR, MACROS_DIR
+from server.config import MAX_CONTENT_LENGTH, DATA_DIR, STM_DIR, SQL_DIR, MACROS_DIR
 from server.routes.upload import upload_bp
 from server.routes.models import models_bp
 from server.routes.compare import compare_bp
@@ -17,7 +17,7 @@ def create_app():
     app.config["SECRET_KEY"] = "dev-secret-key"
     CORS(app)
 
-    for d in [DATA_DIR, RESULTS_DIR, STM_DIR, SQL_DIR, MACROS_DIR]:
+    for d in [DATA_DIR, STM_DIR, SQL_DIR, MACROS_DIR]:
         d.mkdir(parents=True, exist_ok=True)
 
     app.register_blueprint(upload_bp, url_prefix="/api")
