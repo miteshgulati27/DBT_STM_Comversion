@@ -120,8 +120,10 @@ Non-data tabs are automatically skipped when parsing STM workbooks:
 - Domains, Table Of Contents, Instructions, Versions
 - Template, Sample, Business Rules, Conformed
 - Reference, Audit, Coverable Type Master List
+- Sheet1, Backward Compatibility, Issues List, Progress Report, CDC
 
 Only tabs with a recognized "Column Name" / "Target Column" header AND not in the skip list are parsed.
+Results are cached for 5 minutes to avoid re-parsing on every navigation.
 
 ## Model Matching (model_matcher.py)
 
@@ -134,6 +136,20 @@ SQL filenames are mapped to STM tabs using:
 BOP aliases include: bldg→Building, polline→Policy Line, condterm→Condition Term,
 covgterm→Coverage Term, exclterm→Exclusion Term, modifier→Modifier,
 ratefactor→Modifier Rate Factor, premtxn→Premium Transaction, etc.
+
+CA aliases include: all vehicle types (privpas, publictrans, specialtype, truck, zonerated),
+all term variants (covgterm_*, condterm_*, exclterm_* for each entity/vehicle),
+SI covgterm variants (*covgsi), entity models (dealer, driver, garagesvc, etc.),
+scheduled item sub-models (scheditem_*), and union models (cvrbl, covgterm, condterm, exclterm).
+
+## Union Model Resolution (comparator.py)
+
+Union/ref-only models (`select * from {{ ref(...) }} union all ...`) are detected and resolved
+to the first available sub-model for:
+- Column extraction (comparison)
+- Compiled code display
+
+This means comparing `int_gwpc_bop_covgterm` uses columns from `int_gwpc_bop_covgterm_bldg`.
 
 ## BOP SQL Models (data/sql/bop/)
 
@@ -156,3 +172,37 @@ ratefactor→Modifier Rate Factor, premtxn→Premium Transaction, etc.
 | int_gwpc_bop_premtxn | Fact/Transaction | BOP Premium Transaction | None (all N/A) |
 | int_gwpc_bop_classification_cvrbl | Dimension | (no tab in new STM) | SCD1+SCD2 |
 | int_gwpc_bop_jurisdiction_cvrbl | Dimension | (no tab in new STM) | SCD1+SCD2 |
+
+## CA SQL Models (data/sql/ca/) — 71 total
+
+| Category | Count | Models |
+|----------|-------|--------|
+| Vehicles | 5 | privpas, publictrans, specialtype, truck, zonerated (full _cvrbl models) |
+| Coverage Terms | 19 | 10 entity/vehicle terms + 9 SI terms (all use m_int_term macro) |
+| Condition Terms | 9 | dealer, garagesvc, juris, namedind, policyline, privpas, publictrans, specialtype, truck |
+| Exclusion Terms | 9 | same 9 entities as condition terms |
+| Scheduled Items | 14 | 13 sub-models (line_cond/covg/excl, dealer_covg/excl, garagesvc_covg, juris_covg/excl, pp/pt/st/truck/zr_covg) + 1 union |
+| Entity Models | 12 | polline, jurisdiction, dealer, driver, garagesvc, namedind, scheditem, linesicond, modifier, ratefactor, additionalintrst, premtxn |
+| Union Models | 4 | covgterm, condterm, exclterm, cvrbl |
+
+## SCD Type Inference (sql_parser.py)
+
+SCD types are detected from two sources:
+
+1. **Explicit Jinja variables** (for full models):
+   - `{% set key_cols = [...] %}` → N/A
+   - `{% set scd2_cols = [...] %}` → 2
+   - `{% set scd1_cols = [...] %}` → 1
+
+2. **m_int_term macro structure** (for term models):
+   - Key: `{LOB}_{CLAUSE}_KEY`, `END_EFF_DT` → N/A
+   - SCD1: `POL_KEY`, `POL_LINE_KEY`, `{LOB}_CVRBL_KEY` → 1
+   - SCD2: all other business attributes → 2
+
+## Columns Intentionally Excluded
+
+These columns exist in the STM but are NOT in the SQL models by design:
+- **ROW_PROC_DTS** — removed from all BOP and CA models
+- **X_SEQ_NO** — removed from all BOP models
+
+The comparison will correctly show these as "NOT FOUND in DBT" — this is expected behavior.
