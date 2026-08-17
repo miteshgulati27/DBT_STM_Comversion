@@ -322,7 +322,7 @@ def _extract_scd_types(sql_content: str) -> dict:
 
 
 def _get_m_int_term_scd_types(sql_content: str) -> dict:
-    """Derive SCD types for m_int_term macro models based on the macro's built-in SCD logic."""
+    """Derive SCD types for m_int_term macro models to match STM classification."""
     lob_match = re.search(r"set\s+lob\s*=\s*['\"](\w+)['\"]", sql_content)
     clause_match = re.search(r"set\s+clause_type\s*=\s*['\"](\w+)['\"]", sql_content)
     lob = lob_match.group(1).upper() if lob_match else "CA"
@@ -332,18 +332,20 @@ def _get_m_int_term_scd_types(sql_content: str) -> dict:
     cvrbl_key = f"{lob}_CVRBL_KEY"
 
     scd_map = {}
-    scd_map[clause_key] = "N/A"
-    scd_map["END_EFF_DT"] = "N/A"
 
-    scd1_cols = ["POL_KEY", "POL_LINE_KEY", cvrbl_key]
+    scd1_cols = [clause_key, "POL_KEY", "POL_LINE_KEY", cvrbl_key]
     for col in scd1_cols:
         scd_map[col] = "1"
 
+    na_cols = ["SOURCE_SYSTEM", "ETL_ROW_EFF_DTS"]
+    for col in na_cols:
+        scd_map[col] = "N/A"
+
     scd2_cols = [
-        "END_EXP_DT", "ETL_END_EFF_DTS", "ETL_END_EXP_DTS",
+        "END_EFF_DT", "END_EXP_DT", "ETL_END_EFF_DTS", "ETL_END_EXP_DTS",
         "Z_POL_EFF_DT", "Z_POL_EXP_DT", "Z_POL_CHNG_TYPE",
-        "SOURCE_SYSTEM", "CVRBL_TYPE_CD", "PATTERNCODE", "CURR_CD",
-        "TERMS", "NOTERMS", "ETL_ROW_EFF_DTS",
+        "CVRBL_TYPE_CD", "PATTERNCODE", "CURR_CD",
+        "TERMS", "NOTERMS",
     ]
     for col in scd2_cols:
         scd_map[col] = "2"
