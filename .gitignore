@@ -3,6 +3,8 @@ __pycache__/
 .env
 .venv/
 venv/
+data/results/*
+!data/results/.gitkeep
 server/uploads/*
 !server/uploads/.gitkeep
 .DS_Store
