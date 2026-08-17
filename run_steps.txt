@@ -53,17 +53,20 @@ REFRESH BEHAVIOR
 
 FILE PLACEMENT
 --------------
-    data/stm/              → STM workbooks (.xlsx)
-    data/sql/bop/          → BOP compiled SQL files
+    data/stm/              → STM workbooks (.xlsx, .xlsm)
+    data/sql/bop/          → BOP SQL files (DBT Jinja syntax)
     data/sql/ca/           → CA SQL files (raw Jinja or compiled)
     data/macros/           → Macro .sql files (used by compiler)
 
 Current files:
-    data/stm/BOP_CVRBL_STM_1.xlsx
-    data/stm/Commercial Auto Data Specifications.xlsx
-    data/sql/bop/ (4 BOP models — already compiled)
+    data/stm/Businessowners Policy Data Specifications.xlsm   (BOP — 12 data tabs)
+    data/stm/Commercial Auto Data Specifications.xlsx          (CA)
+    data/sql/bop/ (17 BOP models)
     data/sql/ca/ (6 CA models — raw Jinja, compiled at runtime)
     data/macros/ (41 macro files)
+
+Note: Non-data tabs (Template, Sample, Instructions, etc.) are automatically
+filtered out when the STM is parsed — they will NOT appear in Step 2.
 
 OUTPUT
 ------
@@ -72,10 +75,38 @@ Results saved per run:
         ├── <model_name>.xlsx       # One per model
         └── run_log.txt             # Full run log
 
+ADDING A NEW LOB
+-----------------
+1. Place STM file (.xlsx or .xlsm) in data/stm/
+2. Create SQL folder: data/sql/<lob_name>/
+3. Add SQL model files to the folder
+4. Add entry to LOB_CONFIG in server/routes/upload.py:
+       "<lob_id>": {
+           "name": "Display Name",
+           "stm_file": "filename.xlsx",
+           "sql_folder": "<lob_name>",
+       }
+5. Add model aliases in services/model_matcher.py ENTITY_ALIASES if needed
+6. Restart server
+
+ADDING A NEW SQL MODEL TO EXISTING LOB
+---------------------------------------
+1. Create the .sql file in data/sql/<lob>/ following the pattern:
+   - {{ config(materialized='table') }}
+   - Source CTEs (WITH ... SELECT * FROM {{ source(...) }})
+   - Business Mapping (SELECT with key construction + column expressions)
+   - Cleansing (_cleaned CTE with {{ m_cleanse(...) }} macros)
+   - SCD Configuration (key_cols, scd2_cols, scd1_cols + {{ m_scd2_scd1(...) }})
+   - For fact/transaction tables: simple SELECT * at end (no SCD)
+2. Add alias in model_matcher.py if entity name doesn't naturally match STM tab
+3. Restart server — new model appears automatically
+
 TROUBLESHOOTING
 ---------------
 - "Could not match model to any STM tab" → Add alias in model_matcher.py ENTITY_ALIASES
+- Non-data tabs showing in Step 2 → Add tab name to SKIP_TABS in excel_parser.py
 - Low match rate → Use compiled SQL from dbt target/ folder
 - Port 5000 in use → Change in server/app.py: app.run(port=5001)
 - "0 columns found" → Pure macro file; compiler expands m_int_term automatically
 - Column name mismatch → Check STM for spaces instead of underscores
+- .xlsm file not detected → Ensure .xlsm is in ALLOWED_STM_EXTENSIONS in config.py

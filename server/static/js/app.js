@@ -6,37 +6,9 @@ let state = {
     currentModel: null
 };
 
-// --- On page load: restore last session or show Step 1 ---
+// --- On page load: always start fresh at Step 1 ---
 document.addEventListener('DOMContentLoaded', async () => {
-    const saved = localStorage.getItem('stm_dbt_last_session');
-    if (saved) {
-        try {
-            const session = JSON.parse(saved);
-            if (session.lob && session.model) {
-                showLoading('Re-running comparison with latest files...', `${session.model}`);
-                state.selectedLob = session.lob;
-                state.currentModel = session.model;
-
-                const resp = await fetch('/api/compare', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ models: [session.model], lob: session.lob })
-                });
-                const data = await resp.json();
-
-                if (resp.ok && data.results) {
-                    state.results = data.results;
-                    hideLoading();
-                    goToStep(3);
-                    renderResults();
-                    return;
-                }
-            }
-        } catch (e) {
-            console.error('Failed to restore session', e);
-        }
-        hideLoading();
-    }
+    localStorage.removeItem('stm_dbt_last_session');
     loadLobInfo();
 });
 
@@ -68,6 +40,10 @@ async function selectLob(lob) {
     event.currentTarget.classList.remove('border-slate-600');
     event.currentTarget.classList.add('border-cyan-500', 'bg-slate-900/50');
 
+    await loadModelsForLob(lob);
+}
+
+async function loadModelsForLob(lob) {
     showLoading('Loading models...');
     try {
         const resp = await fetch(`/api/lobs/${lob}/models`);
@@ -103,6 +79,18 @@ function updateProgressBar() {
             indicator.className = 'w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-slate-600 text-slate-300';
             indicator.textContent = i;
         }
+    }
+}
+
+// --- Back to Models (uses cached state, no re-fetch) ---
+function backToModels() {
+    if (state.models.length > 0) {
+        goToStep(2);
+        renderModelList();
+    } else if (state.selectedLob) {
+        loadModelsForLob(state.selectedLob);
+    } else {
+        goToStep(1);
     }
 }
 
@@ -167,7 +155,6 @@ async function selectAndCompare(modelName) {
 
         state.results = data.results;
         state.currentModel = modelName;
-        localStorage.setItem('stm_dbt_last_session', JSON.stringify({ lob: state.selectedLob, model: modelName }));
         hideLoading();
         goToStep(3);
         renderResults();
@@ -202,7 +189,6 @@ async function runComparison(mode) {
 
         state.results = data.results;
         state.currentModel = Object.keys(data.results)[0];
-        localStorage.setItem('stm_dbt_last_session', JSON.stringify({ lob: state.selectedLob, model: state.currentModel }));
         hideLoading();
         goToStep(3);
         renderResults();

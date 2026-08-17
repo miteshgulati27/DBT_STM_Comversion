@@ -12,13 +12,30 @@ Flask Server
     ↓ reads from data/ directories
 Services Layer
     ├── dbt_compiler.py     → expands macros from data/macros/ at runtime
-    ├── excel_parser.py     → reads STM columns (auto-detect headers)
-    ├── model_matcher.py    → maps SQL files to STM tabs
+    ├── excel_parser.py     → reads STM columns (auto-detect headers, filters non-data tabs)
+    ├── model_matcher.py    → maps SQL files to STM tabs via alias table
     ├── jinja_preprocessor.py → strips Jinja for parser (keeps metadata)
     ├── sql_parser.py       → extracts columns (sqlglot + regex + JSON + macro)
     ├── rule_engine.py      → compares column by column
     ├── comparator.py       → orchestrates pipeline
     └── report_generator.py → writes .xlsx output
+```
+
+## LOB Configuration (server/routes/upload.py)
+
+```python
+LOB_CONFIG = {
+    "bop": {
+        "name": "Business Owners Policy",
+        "stm_file": "Businessowners Policy Data Specifications.xlsm",
+        "sql_folder": "bop",
+    },
+    "ca": {
+        "name": "Commercial Auto",
+        "stm_file": "Commercial Auto Data Specifications.xlsx",
+        "sql_folder": "ca",
+    },
+}
 ```
 
 ## API Endpoints
@@ -96,3 +113,46 @@ Only from m_cleansing metadata and expression syntax:
 Sheet 1 "Detailed Comparison": STM Column, DBT Column, Column Name Compare, STM DataType, DBT DataType, DataType Comparison, Column Logic, Transformation, Source Expression, Suggestion
 
 Sheet 2 "Summary": Totals, match rate, transformation breakdown
+
+## STM Tab Filtering (excel_parser.py)
+
+Non-data tabs are automatically skipped when parsing STM workbooks:
+- Domains, Table Of Contents, Instructions, Versions
+- Template, Sample, Business Rules, Conformed
+- Reference, Audit, Coverable Type Master List
+
+Only tabs with a recognized "Column Name" / "Target Column" header AND not in the skip list are parsed.
+
+## Model Matching (model_matcher.py)
+
+SQL filenames are mapped to STM tabs using:
+1. Entity name extraction: `int_gwpc_bop_polline` → `polline`
+2. Direct match: entity name vs tab name (normalized)
+3. Alias lookup: `ENTITY_ALIASES` dictionary maps short names to STM tab patterns
+4. Substring match: fallback partial matching
+
+BOP aliases include: bldg→Building, polline→Policy Line, condterm→Condition Term,
+covgterm→Coverage Term, exclterm→Exclusion Term, modifier→Modifier,
+ratefactor→Modifier Rate Factor, premtxn→Premium Transaction, etc.
+
+## BOP SQL Models (data/sql/bop/)
+
+| Model | Type | STM Tab | SCD |
+|-------|------|---------|-----|
+| int_gwpc_bop_polline | Dimension | BOP Policy Line | SCD1+SCD2 |
+| int_gwpc_bop_bldg | Dimension | BOP Building | SCD1+SCD2 |
+| int_gwpc_bop_sblocation | Dimension | BOP Location | SCD1+SCD2 |
+| int_gwpc_bop_covgterm | Dimension | BOP Coverage Term (1) | SCD1+SCD2 |
+| int_gwpc_bop_covgterm_bldg | Dimension | BOP Coverage Term (2) | SCD1+SCD2 |
+| int_gwpc_bop_covgterm_polline | Dimension | BOP Coverage Term (3) | SCD1+SCD2 |
+| int_gwpc_bop_covgterm_sblocation | Dimension | BOP Coverage Term (2) | SCD1+SCD2 |
+| int_gwpc_bop_condterm | Dimension | BOP Condition Term (1) | SCD1+SCD2 |
+| int_gwpc_bop_condterm_polline | Dimension | BOP Condition Term (1) | SCD1+SCD2 |
+| int_gwpc_bop_exclterm | Dimension | BOP Exclusion Term (1) | SCD1+SCD2 |
+| int_gwpc_bop_exclterm_polline | Dimension | BOP Exclusion Term (1) | SCD1+SCD2 |
+| int_gwpc_bop_modifier | Dimension | BOP Modifier (1) | SCD1+SCD2 |
+| int_gwpc_bop_ratefactor | Dimension | BOP Modifier Rate Factor (1) | SCD1+SCD2 |
+| int_gwpc_bop_additionalintrst | Dimension | BOP Additional Interest | SCD1+SCD2 |
+| int_gwpc_bop_premtxn | Fact/Transaction | BOP Premium Transaction | None (all N/A) |
+| int_gwpc_bop_classification_cvrbl | Dimension | (no tab in new STM) | SCD1+SCD2 |
+| int_gwpc_bop_jurisdiction_cvrbl | Dimension | (no tab in new STM) | SCD1+SCD2 |

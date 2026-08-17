@@ -14,8 +14,8 @@ Open `http://localhost:5000`
 
 ## How It Works
 
-1. **Select LOB** — BOP or CA (auto-detects files from `data/` folder)
-2. **Select Model** — click a model → comparison runs automatically
+1. **Select LOB** — BOP or CA (auto-detects STM files from `data/stm/` folder)
+2. **Select Model** — click a model → comparison runs automatically (non-data tabs like Template, Sample, Instructions are filtered out)
 3. **View Results** — 4 tabs:
    - **Comparison** — side-by-side table with summary, filters, frozen headers
    - **STM Data** — raw STM columns with source mapping and business rules
@@ -53,29 +53,38 @@ Each column shows:
 DBT_STM_Comparison/
 ├── server/                  # Flask web app
 │   ├── app.py               # Entry point (port 5000)
+│   ├── config.py            # Paths, allowed extensions (.xlsx, .xls, .xlsm)
 │   ├── routes/              # API endpoints
 │   ├── templates/           # HTML (Jinja2 + Tailwind)
 │   └── static/js/app.js    # Frontend logic
 ├── services/                # Core engine
 │   ├── dbt_compiler.py      # Runtime macro expansion
-│   ├── excel_parser.py      # STM parser (auto-detect headers)
+│   ├── excel_parser.py      # STM parser (auto-detect headers, skips non-data tabs)
+│   ├── model_matcher.py     # SQL filename → STM tab via alias table
 │   ├── sql_parser.py        # Column extraction (sqlglot + regex + JSON + macro)
 │   ├── rule_engine.py       # Comparison rules
 │   ├── comparator.py        # Orchestrator
 │   └── report_generator.py  # .xlsx generation
 ├── data/
-│   ├── stm/                 # STM workbooks
-│   ├── sql/bop/             # BOP SQL files
-│   ├── sql/ca/              # CA SQL files
+│   ├── stm/                 # STM workbooks (.xlsx, .xlsm)
+│   ├── sql/bop/             # 17 BOP SQL files
+│   ├── sql/ca/              # 6 CA SQL files
 │   ├── macros/              # DBT macro .sql files (41 files)
 │   └── results/             # Output per run
 ├── requirements.txt
 └── .env.example
 ```
 
+## Supported LOBs
+
+| LOB | STM File | SQL Models |
+|-----|----------|------------|
+| BOP | `Businessowners Policy Data Specifications.xlsm` | 17 models (polline, bldg, location, covgterm x4, condterm x2, exclterm x2, modifier, ratefactor, premtxn, additionalintrst, classification, jurisdiction) |
+| CA | `Commercial Auto Data Specifications.xlsx` | 6 models (privpas, publictrans, specialtype, truck, zonerated, covgterm_truck) |
+
 ## Technology Stack
 
 - Python 3.12 + Flask
-- openpyxl (Excel read/write)
+- openpyxl (Excel read/write, supports .xlsx/.xls/.xlsm)
 - sqlglot (SQL parsing, Snowflake dialect)
 - Tailwind CSS via CDN (dark theme)

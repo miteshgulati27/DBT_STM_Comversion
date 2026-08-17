@@ -1,0 +1,1 @@
+select * from {{ ref('int_gwpc_bop_condterm_polline') }}

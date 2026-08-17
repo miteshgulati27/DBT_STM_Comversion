@@ -32,8 +32,8 @@
 ## Data Directories
 | Directory | Contents |
 |-----------|----------|
-| `data/stm/` | BOP_CVRBL_STM_1.xlsx, Commercial Auto Data Specifications.xlsx |
-| `data/sql/bop/` | 4 BOP compiled SQL models |
+| `data/stm/` | Businessowners Policy Data Specifications.xlsm, Commercial Auto Data Specifications.xlsx |
+| `data/sql/bop/` | 17 BOP SQL models (polline, bldg, sblocation, covgterm x4, condterm x2, exclterm x2, modifier, ratefactor, premtxn, additionalintrst, classification, jurisdiction) |
 | `data/sql/ca/` | 6 CA SQL models (raw Jinja — compiled at runtime) |
 | `data/macros/` | 41 macro .sql files (m_cleansing, m_int_term, etc.) |
 | `data/results/` | Output: timestamped folders with .xlsx + run_log.txt |

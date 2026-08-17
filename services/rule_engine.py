@@ -125,15 +125,15 @@ def _extract_source_col_from_expr(expression: str) -> str:
 def _name_mismatch_result(stm_col: dict, dbt_col: dict, jinja_metadata: dict, cleansing_map: dict) -> dict:
     """Build result for columns with same expression but different names."""
     stm_type = _normalize_type(stm_col.get("data_type", ""))
-    dbt_type = dbt_col.get("datatype", "UNKNOWN")
+    dbt_type = dbt_col.get("datatype", "-")
     expression = dbt_col.get("expression", "")
     col_name = dbt_col.get("column_name", "").upper()
 
-    if dbt_type == "UNKNOWN" and cleansing_map and col_name in cleansing_map:
+    if dbt_type == "-" and cleansing_map and col_name in cleansing_map:
         dbt_type = cleansing_map[col_name]
-    if dbt_type == "UNKNOWN":
+    if dbt_type == "-":
         dbt_type = _infer_type_from_expression(expression)
-    if dbt_type in ("NULL", "UNKNOWN") and re.match(r"^null(\s+as\s+\w+)?$", expression.strip(), re.IGNORECASE):
+    if dbt_type in ("NULL", "-") and re.match(r"^null(\s+as\s+\w+)?$", expression.strip(), re.IGNORECASE):
         dbt_type = "NULL"
 
     datatype_comparison = _compare_datatypes(stm_type, dbt_type)
@@ -173,17 +173,17 @@ def _build_cleansing_map(jinja_metadata: dict) -> dict:
 def _compare_single_column(stm_col: dict, dbt_col: dict, jinja_metadata: dict, cleansing_map: dict = None) -> dict:
     """Compare a matched STM-DBT column pair."""
     stm_type = _normalize_type(stm_col.get("data_type", ""))
-    dbt_type = dbt_col.get("datatype", "UNKNOWN")
+    dbt_type = dbt_col.get("datatype", "-")
     expression = dbt_col.get("expression", "")
     col_name = dbt_col.get("column_name", "").upper()
 
-    if dbt_type == "UNKNOWN" and cleansing_map and col_name in cleansing_map:
+    if dbt_type == "-" and cleansing_map and col_name in cleansing_map:
         dbt_type = cleansing_map[col_name]
 
-    if dbt_type == "UNKNOWN":
+    if dbt_type == "-":
         dbt_type = _infer_type_from_expression(expression)
 
-    if dbt_type in ("NULL", "UNKNOWN") and re.match(r"^null(\s+as\s+\w+)?$", expression.strip(), re.IGNORECASE):
+    if dbt_type in ("NULL", "-") and re.match(r"^null(\s+as\s+\w+)?$", expression.strip(), re.IGNORECASE):
         dbt_type = "NULL"
 
     datatype_comparison = _compare_datatypes(stm_type, dbt_type)
@@ -288,7 +288,7 @@ def _extra_in_dbt(dbt_col: dict) -> dict:
         "dbt_column": dbt_col["column_name"],
         "column_name_compare": "NOT FOUND in STM",
         "stm_datatype": "-",
-        "dbt_datatype": dbt_col.get("datatype", "UNKNOWN"),
+        "dbt_datatype": dbt_col.get("datatype", "-"),
         "datatype_comparison": "MISMATCH",
         "stm_scd_type": "-",
         "dbt_scd_type": dbt_col.get("scd_type", ""),
@@ -316,7 +316,7 @@ def _compare_datatypes(stm_type: str, dbt_type: str) -> str:
         return "MISMATCH"
     if not stm_type and not dbt_type:
         return "MATCH"
-    if dbt_type in ("UNKNOWN", ""):
+    if dbt_type in ("-", ""):
         return "MISMATCH"
     if not stm_type:
         return "MATCH"
@@ -441,7 +441,7 @@ def _determine_column_logic(stm_col: dict, dbt_col: dict, expression: str) -> st
 def _infer_type_from_expression(expression: str) -> str:
     """Infer datatype only from m_cleansing logic and SQL expression syntax. No column name guessing."""
     if not expression:
-        return "UNKNOWN"
+        return "-"
 
     expr_lower = expression.lower().strip()
     if re.match(r"^null(\s+as\s+\w+)?$", expr_lower):
@@ -465,7 +465,7 @@ def _infer_type_from_expression(expression: str) -> str:
     if re.search(r"\b(sum|count|avg)\s*\(", expr_lower):
         return "NUMBER"
 
-    return "UNKNOWN"
+    return "-"
 
 
 def _generate_suggestion(datatype_comparison: str, column_logic: str, transformation: str) -> str:

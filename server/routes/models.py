@@ -6,7 +6,7 @@ from services.model_matcher import match_models
 models_bp = Blueprint("models", __name__)
 
 LOB_CONFIG = {
-    "bop": {"stm_file": "BOP_CVRBL_STM_1.xlsx", "sql_folder": "bop"},
+    "bop": {"stm_file": "Businessowners Policy Data Specifications.xlsm", "sql_folder": "bop"},
     "ca": {"stm_file": "Commercial Auto Data Specifications.xlsx", "sql_folder": "ca"},
 }
 
@@ -15,7 +15,7 @@ def _get_paths(lob):
     if lob and lob in LOB_CONFIG:
         config = LOB_CONFIG[lob]
         return STM_DIR / config["stm_file"], SQL_DIR / config["sql_folder"]
-    stm_files = list(STM_DIR.glob("*.xlsx")) + list(STM_DIR.glob("*.xls"))
+    stm_files = list(STM_DIR.glob("*.xlsx")) + list(STM_DIR.glob("*.xls")) + list(STM_DIR.glob("*.xlsm"))
     return (stm_files[0] if stm_files else None), SQL_DIR
 
 
@@ -84,9 +84,17 @@ def model_compiled(model_name):
 
     from server.config import MACROS_DIR
     from services.dbt_compiler import compile_sql
+    from services.comparator import _resolve_ref_model
 
     try:
-        compiled_content = compile_sql(sql_path, MACROS_DIR)
+        resolved_path = _resolve_ref_model(sql_path, sql_dir)
+        compiled_content = compile_sql(resolved_path, MACROS_DIR)
+
+        if resolved_path != sql_path:
+            header = f"-- Source: {model_name}.sql resolves to {resolved_path.name}\n"
+            header += f"-- Original: {sql_path.read_text(encoding='utf-8').strip()}\n"
+            header += "-- Compiled sub-model shown below:\n\n"
+            compiled_content = header + compiled_content
     except Exception as e:
         return jsonify({"error": f"Compilation error: {str(e)}"}), 500
 

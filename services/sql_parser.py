@@ -199,7 +199,7 @@ def _extract_column_info(projection) -> dict | None:
         if col.table:
             source_tables.add(col.table)
 
-    datatype = "UNKNOWN"
+    datatype = "-"
     for cast in projection.find_all(exp.Cast):
         dtype = cast.to
         if dtype:
@@ -276,7 +276,7 @@ def _extract_columns_from_select_body(select_body: str) -> list:
             alias = tokens[-1].strip()
             expression = part
 
-        datatype = "UNKNOWN"
+        datatype = "-"
         cast_match = re.search(r"cast\s*\(.*?\s+as\s+(\w+(?:\([^)]*\))?)\s*\)", part, re.IGNORECASE)
         if cast_match:
             datatype = cast_match.group(1).upper()
@@ -314,6 +314,39 @@ def _extract_scd_types(sql_content: str) -> dict:
         cols = re.findall(r"['\"](\w+)['\"]", scd1_match.group(1))
         for col in cols:
             scd_map[col.upper()] = "1"
+
+    if not scd_map and re.search(r"\{\{\s*m_int_term\s*\(", sql_content):
+        scd_map = _get_m_int_term_scd_types(sql_content)
+
+    return scd_map
+
+
+def _get_m_int_term_scd_types(sql_content: str) -> dict:
+    """Derive SCD types for m_int_term macro models based on the macro's built-in SCD logic."""
+    lob_match = re.search(r"set\s+lob\s*=\s*['\"](\w+)['\"]", sql_content)
+    clause_match = re.search(r"set\s+clause_type\s*=\s*['\"](\w+)['\"]", sql_content)
+    lob = lob_match.group(1).upper() if lob_match else "CA"
+    clause = clause_match.group(1).upper() if clause_match else "COVG"
+
+    clause_key = f"{lob}_{clause}_KEY"
+    cvrbl_key = f"{lob}_CVRBL_KEY"
+
+    scd_map = {}
+    scd_map[clause_key] = "N/A"
+    scd_map["END_EFF_DT"] = "N/A"
+
+    scd1_cols = ["POL_KEY", "POL_LINE_KEY", cvrbl_key]
+    for col in scd1_cols:
+        scd_map[col] = "1"
+
+    scd2_cols = [
+        "END_EXP_DT", "ETL_END_EFF_DTS", "ETL_END_EXP_DTS",
+        "Z_POL_EFF_DT", "Z_POL_EXP_DT", "Z_POL_CHNG_TYPE",
+        "SOURCE_SYSTEM", "CVRBL_TYPE_CD", "PATTERNCODE", "CURR_CD",
+        "TERMS", "NOTERMS", "ETL_ROW_EFF_DTS",
+    ]
+    for col in scd2_cols:
+        scd_map[col] = "2"
 
     return scd_map
 
@@ -433,4 +466,4 @@ def _infer_json_col_type(expr: str) -> str:
     if re.search(r"coalesce\s*\(.*?,\s*'NOKEY'\s*\)", expr_lower):
         return "VARCHAR"
 
-    return "UNKNOWN"
+    return "-"

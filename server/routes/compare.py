@@ -10,7 +10,7 @@ compare_bp = Blueprint("compare", __name__)
 
 
 LOB_CONFIG = {
-    "bop": {"stm_file": "BOP_CVRBL_STM_1.xlsx", "sql_folder": "bop"},
+    "bop": {"stm_file": "Businessowners Policy Data Specifications.xlsm", "sql_folder": "bop"},
     "ca": {"stm_file": "Commercial Auto Data Specifications.xlsx", "sql_folder": "ca"},
 }
 

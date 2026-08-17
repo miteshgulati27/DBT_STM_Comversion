@@ -1,4 +1,4 @@
-
+﻿
 {{ config(
     materialized='table'
 ) }}
@@ -76,8 +76,6 @@ INT_CA_VEH AS (
 
         'GWPC' || '-' || CAST(polper.PERIODID AS VARCHAR) || '-' || CAST(capp.LOCATION AS VARCHAR)
             AS GARAGE_LOC_KEY,
-
-        job.CLOSEDATE AS ROW_PROC_DTS,
 
         CAST(COALESCE(capp.EFFECTIVEDATE, polper.PERIODSTART) AS DATE) AS END_EFF_DT,
 
@@ -275,7 +273,6 @@ INT_CA_VEH_cleaned AS (
         {{ m_cleanse('VARCHAR_NOKEY', 'OWNING_CVRBL_KEY') }} AS OWNING_CVRBL_KEY,
         UPPER({{ m_cleanse('VARCHAR_NOKEY', 'CVRBL_TYPE_KEY') }}) AS CVRBL_TYPE_KEY,
         UPPER({{ m_cleanse('VARCHAR_NOKEY', 'GARAGE_LOC_KEY') }}) AS GARAGE_LOC_KEY,
-        ROW_PROC_DTS,
         {{ m_cleanse('DATE_LOW', 'END_EFF_DT') }} AS END_EFF_DT,
         {{ m_cleanse('DATE_HIGH', 'END_EXP_DT') }} AS END_EXP_DT,
         {{ m_cleanse('VARCHAR_SINGLESPACE', 'SOURCE_SYSTEM') }} AS SOURCE_SYSTEM,
@@ -417,7 +414,6 @@ INT_CA_VEH_cleaned AS (
 
 {%- set key_cols = [
     'CA_CVRBL_KEY',
-    'ROW_PROC_DTS',
     'END_EFF_DT'
 ] -%}
 

@@ -11,7 +11,7 @@ upload_bp = Blueprint("upload", __name__)
 LOB_CONFIG = {
     "bop": {
         "name": "Business Owners Policy",
-        "stm_file": "BOP_CVRBL_STM_1.xlsx",
+        "stm_file": "Businessowners Policy Data Specifications.xlsm",
         "sql_folder": "bop",
     },
     "ca": {

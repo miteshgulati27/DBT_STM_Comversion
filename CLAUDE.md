@@ -26,18 +26,18 @@ cd DBT_STM_Comparison
 
 ## Data Organization
 ```
-data/stm/BOP_CVRBL_STM_1.xlsx                     # BOP STM (5 tabs)
-data/stm/Commercial Auto Data Specifications.xlsx   # CA STM (56 tabs)
-data/sql/bop/int_gwpc_bop_*.sql                    # 4 BOP compiled SQL
-data/sql/ca/int_gwpc_ca_*.sql                      # 6 CA SQL (raw Jinja)
-data/macros/*.sql                                   # 41 macro files (used by compiler)
-data/results/<timestamp>/                           # Output per run
+data/stm/Businessowners Policy Data Specifications.xlsm  # BOP STM (12 data tabs)
+data/stm/Commercial Auto Data Specifications.xlsx         # CA STM (56 tabs)
+data/sql/bop/int_gwpc_bop_*.sql                          # 17 BOP SQL models
+data/sql/ca/int_gwpc_ca_*.sql                            # 6 CA SQL (raw Jinja)
+data/macros/*.sql                                         # 41 macro files (used by compiler)
+data/results/<timestamp>/                                 # Output per run
 ```
 
 ## LOB Configuration (server/routes/upload.py)
 ```python
 LOB_CONFIG = {
-    "bop": {"stm_file": "BOP_CVRBL_STM_1.xlsx", "sql_folder": "bop"},
+    "bop": {"stm_file": "Businessowners Policy Data Specifications.xlsm", "sql_folder": "bop"},
     "ca": {"stm_file": "Commercial Auto Data Specifications.xlsx", "sql_folder": "ca"},
 }
 ```
@@ -51,3 +51,6 @@ LOB_CONFIG = {
 - Auto-refresh: localStorage saves {lob, model}, F5 re-runs with latest files
 - Summary: matched + mismatched = total STM columns (always adds up)
 - Extra in DBT tracked separately
+- Non-data STM tabs (Template, Sample, Instructions, etc.) are filtered via SKIP_TABS in excel_parser.py
+- Supported file formats: .xlsx, .xls, .xlsm (config.py ALLOWED_STM_EXTENSIONS)
+- Model matching uses ENTITY_ALIASES in model_matcher.py for SQL→STM tab resolution

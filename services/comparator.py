@@ -1,8 +1,34 @@
+import re
 from pathlib import Path
 from services.excel_parser import parse_stm_workbook, get_tab_columns
 from services.sql_parser import parse_sql_file
 from services.model_matcher import match_models, _extract_entity_name, _find_best_tab_match
 from services.rule_engine import compare_columns
+
+
+def _resolve_ref_model(sql_path: Path, sql_dir: Path) -> Path:
+    """If the SQL file is a ref-only/union model (select * from ref(...)),
+    resolve to the first referenced sub-model that has actual SQL logic."""
+    content = sql_path.read_text(encoding="utf-8").strip()
+    refs = re.findall(r"\{\{\s*ref\s*\(\s*['\"](\w+)['\"]\s*\)\s*\}\}", content)
+    if not refs:
+        return sql_path
+
+    lines = [l.strip() for l in content.splitlines() if l.strip() and not l.strip().startswith("--")]
+    is_ref_only = all(
+        re.match(r"^(select\s+\*\s+from\s+\{\{|union\s+all|--)", l, re.IGNORECASE)
+        for l in lines
+    )
+
+    if not is_ref_only:
+        return sql_path
+
+    for ref_name in refs:
+        ref_path = sql_dir / f"{ref_name}.sql"
+        if ref_path.exists():
+            return ref_path
+
+    return sql_path
 
 
 def run_comparison(model_name: str, stm_path: Path, sql_dir: Path, macros_dir: Path) -> dict:
@@ -22,7 +48,8 @@ def run_comparison(model_name: str, stm_path: Path, sql_dir: Path, macros_dir: P
     if not sql_path.exists():
         raise FileNotFoundError(f"SQL file not found: {model_name}.sql")
 
-    parsed_sql = parse_sql_file(sql_path)
+    resolved_path = _resolve_ref_model(sql_path, sql_dir)
+    parsed_sql = parse_sql_file(resolved_path)
     dbt_columns = parsed_sql["columns"]
     jinja_metadata = parsed_sql["jinja_metadata"]
 
