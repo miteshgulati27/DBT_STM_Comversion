@@ -23,22 +23,22 @@ def _get_m_int_term_columns(jinja_metadata: dict, sql_content: str) -> list:
     clause_key_text = ""
     term_table_name = ""
 
-    lob_match = re.search(r"\{%\s*set\s+lob\s*=\s*['\"](\w+)['\"]", sql_content)
+    lob_match = re.search(r"\{%-?\s*set\s+lob\s*=\s*['\"](\w+)['\"]", sql_content)
     if lob_match:
         lob = lob_match.group(1).upper()
-    clause_match = re.search(r"\{%\s*set\s+clause_type\s*=\s*['\"](\w+)['\"]", sql_content)
+    clause_match = re.search(r"\{%-?\s*set\s+clause_type\s*=\s*['\"](\w+)['\"]", sql_content)
     if clause_match:
         clause_type = clause_match.group(1).upper()
-    cvrbl_text_match = re.search(r"\{%\s*set\s+cvrbl_key_text\s*=\s*['\"]([^'\"]+)['\"]", sql_content)
+    cvrbl_text_match = re.search(r"\{%-?\s*set\s+cvrbl_key_text\s*=\s*['\"]([^'\"]+)['\"]", sql_content)
     if cvrbl_text_match:
         cvrbl_key_text = cvrbl_text_match.group(1)
-    src_col_match = re.search(r"\{%\s*set\s+cvrbl_key_src_col\s*=\s*['\"]([^'\"]+)['\"]", sql_content)
+    src_col_match = re.search(r"\{%-?\s*set\s+cvrbl_key_src_col\s*=\s*['\"]([^'\"]+)['\"]", sql_content)
     if src_col_match:
         cvrbl_key_src_col = src_col_match.group(1)
-    clause_text_match = re.search(r"\{%\s*set\s+clause_key_text\s*=\s*['\"]([^'\"]+)['\"]", sql_content)
+    clause_text_match = re.search(r"\{%-?\s*set\s+clause_key_text\s*=\s*['\"]([^'\"]+)['\"]", sql_content)
     if clause_text_match:
         clause_key_text = clause_text_match.group(1)
-    table_match = re.search(r"\{%\s*set\s+term_table_name\s*=\s*['\"]([^'\"]+)['\"]", sql_content)
+    table_match = re.search(r"\{%-?\s*set\s+term_table_name\s*=\s*['\"]([^'\"]+)['\"]", sql_content)
     if table_match:
         term_table_name = table_match.group(1)
 

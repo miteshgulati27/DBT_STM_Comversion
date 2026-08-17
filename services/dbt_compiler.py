@@ -57,9 +57,9 @@ def compile_sql(sql_path: Path, macros_dir: Path) -> str:
 
 
 def _extract_set_variables(sql: str) -> dict:
-    """Extract {% set var = 'value' %} assignments."""
+    """Extract {% set var = 'value' %} and {%- set var = 'value' -%} assignments."""
     variables = {}
-    for match in re.finditer(r"\{%\s*set\s+(\w+)\s*=\s*['\"]([^'\"]*)['\"]", sql):
+    for match in re.finditer(r"\{%-?\s*set\s+(\w+)\s*=\s*['\"]([^'\"]*)['\"]", sql):
         variables[match.group(1)] = match.group(2)
     return variables
 
