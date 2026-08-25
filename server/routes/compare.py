@@ -1,18 +1,13 @@
+import csv
 import json
 from datetime import datetime
 from pathlib import Path
 from flask import Blueprint, jsonify, request, send_file
-from server.config import STM_DIR, SQL_DIR, MACROS_DIR, RESULTS_DIR
+from server.config import STM_DIR, SQL_DIR, MACROS_DIR, RESULTS_DIR, MAPPINGS_DIR, LOB_CONFIG
 from services.comparator import run_comparison
 from services.report_generator import generate_xlsx
 
 compare_bp = Blueprint("compare", __name__)
-
-
-LOB_CONFIG = {
-    "bop": {"stm_file": "Businessowners Policy Data Specifications.xlsm", "sql_folder": "bop"},
-    "ca": {"stm_file": "Commercial Auto Data Specifications.xlsx", "sql_folder": "ca"},
-}
 
 
 @compare_bp.route("/compare", methods=["POST"])
@@ -38,6 +33,18 @@ def compare():
     if not stm_path.exists():
         return jsonify({"error": f"STM file not found: {stm_path.name}"}), 400
 
+    # Load mapping CSV for STM tab resolution
+    model_to_stm_tab = {}
+    if lob and lob in LOB_CONFIG:
+        mapping_file = MAPPINGS_DIR / LOB_CONFIG[lob].get("mapping_file", "")
+        if mapping_file.exists():
+            with open(mapping_file, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    sql_model = row["SQL Model"].strip()
+                    stm_tab = row["STM Tab"].strip() if row["STM Tab"].strip() else None
+                    model_to_stm_tab[sql_model] = stm_tab
+
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     run_dir = RESULTS_DIR / timestamp
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -51,7 +58,8 @@ def compare():
     for model_name in models:
         log_lines.append(f"[{datetime.now().strftime('%H:%M:%S')}] Processing: {model_name}")
         try:
-            result = run_comparison(model_name, stm_path, sql_dir, MACROS_DIR)
+            stm_tab_override = model_to_stm_tab.get(model_name)
+            result = run_comparison(model_name, stm_path, sql_dir, MACROS_DIR, stm_tab_override)
             results[model_name] = result
 
             xlsx_path = run_dir / f"{model_name}.xlsx"

@@ -1,73 +1,76 @@
+{#-
+    Macro: m_cleansing
+    Purpose: Generic column cleansing macro. Pass a cleansing rule name and
+    a column name, and it returns the corresponding CASE/expression logic.
+-#}
 {%- macro m_cleansing(in_cleansing_name, in_column_nm) -%}
 
+{%- set final_return -%}
+
     {%- if in_cleansing_name == 'VARCHAR_SINGLESPACE' -%}
-        CASE
-            WHEN TRIM({{ in_column_nm }}) = '' THEN NULL
-            ELSE REGEXP_REPLACE(TRIM({{ in_column_nm }}), '\\s+', ' ')
-        END
+
+        (case when {{ in_column_nm }} is null or TRIM({{ in_column_nm }})='' then ' ' else TRIM({{ in_column_nm }}) end)
+
     {%- elif in_cleansing_name == 'VARCHAR_QUESTION' -%}
-        CASE
-            WHEN TRIM({{ in_column_nm }}) = '' THEN NULL
-            WHEN TRIM({{ in_column_nm }}) = '?' THEN NULL
-            WHEN TRIM({{ in_column_nm }}) = '??' THEN NULL
-            ELSE TRIM({{ in_column_nm }})
-        END
+
+        (case when {{ in_column_nm }} is null or TRIM({{ in_column_nm }})='' then '?' else TRIM({{ in_column_nm }}) end)
+
     {%- elif in_cleansing_name == 'VARCHAR_NOKEY' -%}
-        CASE
-            WHEN TRIM({{ in_column_nm }}) = '' THEN NULL
-            WHEN UPPER(TRIM({{ in_column_nm }})) = 'NOKEY' THEN NULL
-            WHEN UPPER(TRIM({{ in_column_nm }})) = 'NO KEY' THEN NULL
-            ELSE TRIM({{ in_column_nm }})
-        END
-    {%- elif in_cleansing_name == 'VARCHAR_UPPER' -%}
-        CASE
-            WHEN TRIM({{ in_column_nm }}) = '' THEN NULL
-            ELSE UPPER(TRIM({{ in_column_nm }}))
-        END
-    {%- elif in_cleansing_name == 'VARCHAR_LOWER' -%}
-        CASE
-            WHEN TRIM({{ in_column_nm }}) = '' THEN NULL
-            ELSE LOWER(TRIM({{ in_column_nm }}))
-        END
-    {%- elif in_cleansing_name == 'VARCHAR_TRIM' -%}
-        CASE
-            WHEN TRIM({{ in_column_nm }}) = '' THEN NULL
-            ELSE TRIM({{ in_column_nm }})
-        END
-    {%- elif in_cleansing_name == 'NUMBER_ZERO_TO_NULL' -%}
-        CASE
-            WHEN {{ in_column_nm }} = 0 THEN NULL
-            ELSE {{ in_column_nm }}
-        END
-    {%- elif in_cleansing_name == 'DATE_DEFAULT' -%}
-        CASE
-            WHEN {{ in_column_nm }} IS NULL THEN '1900-01-01'::DATE
-            ELSE {{ in_column_nm }}
-        END
-    {%- elif in_cleansing_name == 'TIMESTAMP_DEFAULT' -%}
-        CASE
-            WHEN {{ in_column_nm }} IS NULL THEN '1900-01-01 00:00:00'::TIMESTAMP_NTZ
-            ELSE {{ in_column_nm }}
-        END
-    {%- elif in_cleansing_name == 'BOOLEAN_DEFAULT' -%}
-        CASE
-            WHEN {{ in_column_nm }} IS NULL THEN FALSE
-            ELSE {{ in_column_nm }}
-        END
+
+        (case when {{ in_column_nm }} is null or TRIM({{ in_column_nm }})='' then 'NOKEY' else TRIM({{ in_column_nm }}) end)
+
+    {%- elif in_cleansing_name == 'VARCHAR_NA_LOWERCASE' -%}
+
+        (case when {{ in_column_nm }} is null or TRIM({{ in_column_nm }})='' then 'n/a' else TRIM({{ in_column_nm }}) end)
+
     {%- elif in_cleansing_name == 'VARCHAR_NA' -%}
-        CASE
-            WHEN TRIM({{ in_column_nm }}) = '' THEN NULL
-            WHEN UPPER(TRIM({{ in_column_nm }})) IN ('N/A', 'NA', 'NONE', 'NULL') THEN NULL
-            ELSE TRIM({{ in_column_nm }})
-        END
-    {%- elif in_cleansing_name == 'VARCHAR_DASH' -%}
-        CASE
-            WHEN TRIM({{ in_column_nm }}) = '' THEN NULL
-            WHEN TRIM({{ in_column_nm }}) IN ('-', '--', '---') THEN NULL
-            ELSE TRIM({{ in_column_nm }})
-        END
+
+        (case when {{ in_column_nm }} is null or {{ in_column_nm }}='' then 'N/A' else TRIM({{ in_column_nm }}) end)
+
+    {%- elif in_cleansing_name == 'NUMERIC_ZERO' -%}
+
+        (case when {{ in_column_nm }} is null then 0 else {{ in_column_nm }} end)
+
+    {%- elif in_cleansing_name == 'VARCHAR_FLAG_UNKNOWN' -%}
+
+        (case when {{ in_column_nm }} is null or {{ in_column_nm }}='' then 'U' else TRIM({{ in_column_nm }}) end)
+
+    {%- elif in_cleansing_name == 'VARCHAR_FLAG_Y_N_U' -%}
+
+        (case when TRIM({{ in_column_nm }})='true' then 'Y' when TRIM({{ in_column_nm }})='false' then 'N' else 'U' end)
+
+    {%- elif in_cleansing_name == 'DATE_LOW' -%}
+
+        (case when is_date(to_variant({{ in_column_nm }})) = FALSE then to_date('01/01/1900','MM/DD/YYYY')
+        else {{ in_column_nm }}
+        end)
+
+    {%- elif in_cleansing_name == 'DATE_HIGH' -%}
+
+        (case when is_date(to_variant({{ in_column_nm }})) = FALSE then to_date('12/31/9000','MM/DD/YYYY')
+        else {{ in_column_nm }}
+        end)
+
+    {%- elif in_cleansing_name == 'TIMESTAMP_NTZ_LOW' -%}
+
+        (case when is_timestamp_ntz(to_variant({{ in_column_nm }})) = FALSE then to_timestamp('01/01/1900 00:00:00','MM/DD/YYYY HH24:MI:SS')
+        else {{ in_column_nm }}
+        end)
+
+    {%- elif in_cleansing_name == 'TIMESTAMP_NTZ_HIGH' -%}
+
+        (case when is_timestamp_ntz(to_variant({{ in_column_nm }})) = FALSE then to_timestamp('12/31/9000 00:00:00','MM/DD/YYYY HH24:MI:SS')
+        else {{ in_column_nm }}
+        end)
+
     {%- else -%}
+
         {{ in_column_nm }}
+
     {%- endif -%}
+
+{%- endset -%}
+
+{{ return(final_return) }}
 
 {%- endmacro -%}

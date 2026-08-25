@@ -1,14 +1,23 @@
+import csv
 from flask import Blueprint, jsonify, request
-from server.config import STM_DIR, SQL_DIR
+from server.config import STM_DIR, SQL_DIR, MAPPINGS_DIR, LOB_CONFIG
 from services.excel_parser import parse_stm_workbook, get_tab_columns
 from services.model_matcher import match_models
 
 models_bp = Blueprint("models", __name__)
 
-LOB_CONFIG = {
-    "bop": {"stm_file": "Businessowners Policy Data Specifications.xlsm", "sql_folder": "bop"},
-    "ca": {"stm_file": "Commercial Auto Data Specifications.xlsx", "sql_folder": "ca"},
-}
+
+def _get_mapping_tab(lob, model_name):
+    """Get STM tab for a model from the mapping CSV."""
+    if lob and lob in LOB_CONFIG:
+        mapping_file = MAPPINGS_DIR / LOB_CONFIG[lob].get("mapping_file", "")
+        if mapping_file.exists():
+            with open(mapping_file, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row["SQL Model"].strip() == model_name:
+                        return row["STM Tab"].strip() or None
+    return None
 
 
 def _get_paths(lob):
@@ -40,17 +49,12 @@ def model_details(model_name):
     if not stm_path or not stm_path.exists():
         return jsonify({"error": "No STM file found"}), 404
 
-    stm_tabs = parse_stm_workbook(stm_path)
-    sql_files = [f.name for f in sql_dir.glob("*.sql")] if sql_dir.exists() else []
-    models = match_models(stm_tabs, sql_files)
+    # Use mapping CSV for STM tab resolution
+    stm_tab = _get_mapping_tab(lob, model_name)
 
-    model = next((m for m in models if m["model_name"] == model_name), None)
-    if not model:
-        return jsonify({"error": f"Model {model_name} not found"}), 404
-
-    if model["stm_tab"]:
-        columns = get_tab_columns(stm_path, model["stm_tab"])
-        return jsonify({"model_name": model_name, "stm_tab": model["stm_tab"], "columns": columns})
+    if stm_tab:
+        columns = get_tab_columns(stm_path, stm_tab)
+        return jsonify({"model_name": model_name, "stm_tab": stm_tab, "columns": columns})
 
     return jsonify({"model_name": model_name, "stm_tab": None, "columns": []})
 

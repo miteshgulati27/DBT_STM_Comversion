@@ -229,7 +229,9 @@ INT_CA_VEH_TRUCK AS (
             ELSE NULL
         END AS AUTO_RENTED_TO_OTHR_CARR_FL,
 
-        NULL AS VEH_INDC_CD
+        NULL AS VEH_INDC_CD,
+
+        'TEST Column only in DBT' as TEST_COLUMN
 
     FROM pcx_ca7truck catruck
     JOIN pc_policyperiod polper
@@ -284,9 +286,9 @@ INT_CA_VEH_TRUCK_cleaned AS (
         {{ m_cleanse('VARCHAR_SINGLESPACE', 'LIC_PLATE') }} AS LIC_PLATE,
         (
             CASE
-                WHEN UPPER(TRIM(CAST(LEASE_OR_RENT_FL AS VARCHAR))) IN ('TRUE','T','YES','Y','1') THEN 'Y'
-                WHEN UPPER(TRIM(CAST(LEASE_OR_RENT_FL AS VARCHAR))) IN ('FALSE','F','NO','N','0') THEN 'N'
-                ELSE 'U'
+                WHEN UPPER(TRIM(CAST(LEASE_OR_RENT_FL AS VARCHAR))) IN ('TRUE','T','YES','Y','1') THEN 'YES'
+                WHEN UPPER(TRIM(CAST(LEASE_OR_RENT_FL AS VARCHAR))) IN ('FALSE','F','NO','N','0') THEN 'NO'
+                ELSE 'UNVERIFIED'
             END
         ) AS LEASE_OR_RENT_FL,
         {{ m_cleanse('VARCHAR_SINGLESPACE', 'LEN_OF_LEASE_CD') }} AS LEN_OF_LEASE_CD,
@@ -399,7 +401,9 @@ INT_CA_VEH_TRUCK_cleaned AS (
                 ELSE 'U'
             END
         ) AS AUTO_RENTED_TO_OTHR_CARR_FL,
-        {{ m_cleanse('VARCHAR_SINGLESPACE', 'VEH_INDC_CD') }} AS VEH_INDC_CD
+        {{ m_cleanse('VARCHAR_SINGLESPACE', 'VEH_INDC_CD') }} AS VEH_INDC_CD,
+        {{ m_cleanse('VARCHAR_SINGLESPACE', 'TEST_COLUMN') }} AS TEST_COLUMN
+
     FROM INT_CA_VEH_TRUCK
 )
 
@@ -474,7 +478,8 @@ INT_CA_VEH_TRUCK_cleaned AS (
     'PUB_TRNSP_GRP_CD',
     'TRNSP_PUB_PSNGR_FOR_COMP_FL',
     'AUTO_RENTED_TO_OTHR_CARR_FL',
-    'VEH_INDC_CD'
+    'VEH_INDC_CD',
+    'TEST_COLUMN'
 ] -%}
 
 {%- set scd1_cols = [

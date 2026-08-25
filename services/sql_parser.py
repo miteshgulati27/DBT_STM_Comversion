@@ -111,6 +111,28 @@ def parse_sql_file(sql_path: Path) -> dict:
     }
 
 
+def parse_compiled_sql(compiled_sql: str) -> dict:
+    """Parse a compiled SQL string (already macro-expanded) and extract column definitions."""
+    columns = []
+    if HAS_SQLGLOT:
+        columns = _parse_with_sqlglot(compiled_sql)
+
+    regex_columns = _parse_with_regex(compiled_sql)
+
+    if not columns:
+        columns = regex_columns
+    elif regex_columns:
+        columns = columns + regex_columns
+
+    json_columns = _extract_json_object_columns(compiled_sql)
+    if json_columns:
+        columns = columns + json_columns
+
+    columns = _dedupe_prefer_non_null(columns)
+
+    return {"columns": columns}
+
+
 def _dedupe_prefer_non_null(columns: list) -> list:
     """When a column appears multiple times, keep the best (most informative) definition."""
     seen = {}

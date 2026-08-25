@@ -1,15 +1,5 @@
 import re
 
-MACRO_BUSINESS_RULES = {
-    "m_cleanse_string": "Direct Pass-through",
-    "m_cleanse_number": "Direct Pass-through",
-    "m_cleanse_flag": "Direct Pass-through",
-    "m_cleanse_primary_key": "Direct Pass-through",
-    "m_cleanse_foreign_key": "Direct Pass-through",
-    "m_cleanse_source_system": "Direct Pass-through",
-    "m_cleanse_date": "Direct Pass-through",
-}
-
 CLEANSING_TYPE_MAP = {
     "varchar_nokey": "VARCHAR",
     "varchar_question": "VARCHAR",
@@ -25,6 +15,31 @@ CLEANSING_TYPE_MAP = {
     "timestamp_ntz_high": "TIMESTAMP_NTZ",
 }
 
+# Maps STM general rule names to expected DBT behavior patterns
+# ALL keywords must appear in DBT compiled expression for a MATCH
+GENERAL_RULE_PATTERNS = {
+    "general rule 1": {"keywords": ["trim", "' '"]},
+    "general rule 2": {"keywords": ["trim", "'?'"]},
+    "general rule 3": {"keywords": ["trim", "not available"]},
+    "general rule 4": {"keywords": ["trim", "@error"]},
+    "general rule 5": {"keywords": ["trim", "null"]},
+    "general rule 6": {"keywords": ["n/a"]},
+    "general date rule 1": {"keywords": ["1900-01-01"]},
+    "general date rule 2": {"keywords": ["9000-12-31"]},
+    "general date rule 3": {"keywords": ["1900-01-01", "2079-06-06"]},
+    "general date rule 4": {"keywords": ["1970-01-01", "2025-06-06"]},
+    "general date rule 5": {"keywords": ["null"]},
+    "general number rule 1": {"keywords": ["null", "0"]},
+    "general number rule 2": {"keywords": ["null", "1"]},
+    "general number rule 3": {"keywords": ["numeric", "0"]},
+    "general number rule 4": {"keywords": ["null"]},
+    "general flag rule 1": {"keywords": ["'u'"]},
+    "general flag rule 2": {"keywords": ["'n'"]},
+    "general foreign key rule 1": {"keywords": ["nokey"]},
+    "general primary key rule 1": {"keywords": ["trim", "nokey"]},
+    "general source system rule 1": {"keywords": ["trim", "'?'"]},
+}
+
 
 def _normalize_stm_name(name: str) -> str:
     """Strip (PK), (FK), replace spaces with underscores for matching."""
@@ -36,8 +51,11 @@ def _normalize_stm_name(name: str) -> str:
     return name
 
 
-def compare_columns(stm_columns: list, dbt_columns: list, jinja_metadata: dict) -> list:
+def compare_columns(stm_columns: list, dbt_columns: list, jinja_metadata: dict, compiled_expressions: dict = None) -> list:
     """Compare STM columns against DBT columns using rule-based matching."""
+    if compiled_expressions is None:
+        compiled_expressions = {}
+
     results = []
     dbt_col_map = {c["column_name"].upper(): c for c in dbt_columns}
     matched_dbt = set()
@@ -52,7 +70,7 @@ def compare_columns(stm_columns: list, dbt_columns: list, jinja_metadata: dict) 
 
         if dbt_col:
             matched_dbt.add(stm_name)
-            result = _compare_single_column(stm_col, dbt_col, jinja_metadata, cleansing_map)
+            result = _compare_single_column(stm_col, dbt_col, jinja_metadata, cleansing_map, compiled_expressions)
             results.append(result)
         else:
             unmatched_stm.append(stm_col)
@@ -62,7 +80,7 @@ def compare_columns(stm_columns: list, dbt_columns: list, jinja_metadata: dict) 
         if dbt_name not in matched_dbt:
             unmatched_dbt.append(dbt_col)
 
-    resolved_stm, resolved_dbt = _cross_check_by_expression(unmatched_stm, unmatched_dbt, jinja_metadata, cleansing_map)
+    resolved_stm, resolved_dbt = _cross_check_by_expression(unmatched_stm, unmatched_dbt, jinja_metadata, cleansing_map, compiled_expressions)
 
     for result in resolved_stm:
         results.append(result)
@@ -72,8 +90,8 @@ def compare_columns(stm_columns: list, dbt_columns: list, jinja_metadata: dict) 
     return results
 
 
-def _cross_check_by_expression(unmatched_stm: list, unmatched_dbt: list, jinja_metadata: dict, cleansing_map: dict) -> tuple:
-    """Cross-check unmatched columns by expression. If expressions match but names differ, flag as NAME MISMATCH."""
+def _cross_check_by_expression(unmatched_stm: list, unmatched_dbt: list, jinja_metadata: dict, cleansing_map: dict, compiled_expressions: dict) -> tuple:
+    """Cross-check unmatched columns by expression."""
     resolved_stm_results = []
     resolved_dbt_results = []
     matched_dbt_indices = set()
@@ -91,7 +109,7 @@ def _cross_check_by_expression(unmatched_stm: list, unmatched_dbt: list, jinja_m
 
                 if dbt_expr_source and stm_source == dbt_expr_source.upper():
                     matched_dbt_indices.add(i)
-                    result = _name_mismatch_result(stm_col, dbt_col, jinja_metadata, cleansing_map)
+                    result = _name_mismatch_result(stm_col, dbt_col, jinja_metadata, cleansing_map, compiled_expressions)
                     resolved_stm_results.append(result)
                     found = True
                     break
@@ -101,13 +119,13 @@ def _cross_check_by_expression(unmatched_stm: list, unmatched_dbt: list, jinja_m
 
     for i, dbt_col in enumerate(unmatched_dbt):
         if i not in matched_dbt_indices:
-            resolved_dbt_results.append(_extra_in_dbt(dbt_col))
+            resolved_dbt_results.append(_extra_in_dbt(dbt_col, compiled_expressions))
 
     return resolved_stm_results, resolved_dbt_results
 
 
 def _extract_source_col_from_expr(expression: str) -> str:
-    """Extract the source column reference from a DBT expression (e.g., 'capp.CA7VIN' -> 'CA7VIN')."""
+    """Extract the source column reference from a DBT expression."""
     expr = expression.strip()
     expr = re.sub(r"\s+AS\s+\w+\s*$", "", expr, flags=re.IGNORECASE)
 
@@ -122,7 +140,204 @@ def _extract_source_col_from_expr(expression: str) -> str:
     return ""
 
 
-def _name_mismatch_result(stm_col: dict, dbt_col: dict, jinja_metadata: dict, cleansing_map: dict) -> dict:
+def _build_stm_logic(stm_col: dict) -> str:
+    """Build STM logic display: source_column | general rule applied."""
+    parts = []
+    source_column = stm_col.get("source_column", "").strip()
+    business_rule = stm_col.get("business_rule", "").strip()
+
+    if source_column:
+        parts.append(source_column)
+    if business_rule:
+        parts.append(business_rule)
+
+    return " | ".join(parts) if parts else "-"
+
+
+def _resolve_stm_variables(stm_source: str, transformation: str) -> list:
+    """Resolve @variables in STM source_column using declare statements in transformation field."""
+    # Extract all @variable references from source
+    var_refs = re.findall(r"@(\w+)", stm_source)
+    if not var_refs:
+        return []
+
+    # Extract declare statements: declare @VAR type = 'value'
+    declares = {}
+    for match in re.finditer(r"declare\s+@(\w+)\s+\w+(?:\([^)]*\))?\s*=\s*'([^']*)'", transformation, re.IGNORECASE):
+        declares[match.group(1).upper()] = match.group(2)
+
+    # Resolve each variable to its value
+    resolved = []
+    for var in var_refs:
+        value = declares.get(var.upper())
+        if value:
+            resolved.append(value)
+
+    return resolved
+
+
+def _get_compiled_expression(col_name: str, compiled_expressions: dict) -> str:
+    """Get the compiled expression for a column, truncated for display if too long."""
+    expr = compiled_expressions.get(col_name.upper(), "-")
+    if expr and len(expr) > 500:
+        return expr[:497] + "..."
+    return expr or "-"
+
+
+def _compare_logic(stm_col: dict, dbt_compiled_expr: str) -> str:
+    """Compare STM logic vs DBT compiled expression (strict).
+
+    Checks THREE things — ALL must pass:
+    1. Source column: Does DBT reference the same source column(s) as STM?
+    2. Cleansing rule: Does DBT apply ALL expected keywords from the general rule?
+    3. NULL handling: If STM is intentionally NULL, DBT must also be NULL.
+    """
+    if not dbt_compiled_expr or dbt_compiled_expr == "-":
+        return "MISMATCH"
+
+    dbt_lower = dbt_compiled_expr.lower()
+    stm_source = stm_col.get("source_column", "").strip()
+    business_rule = stm_col.get("business_rule", "").strip().lower()
+
+    # If STM has no logic at all (no source column, no rule), can't verify
+    if not stm_source and not business_rule:
+        return "MISMATCH"
+
+    # Special case: STM source is NULL (intentional NULL column)
+    stm_source_lower = stm_source.lower()
+    target_col_name = _normalize_stm_name(stm_col.get("target_column", ""))
+    if re.match(r"^[,\s]*null\s+as\s+", stm_source_lower):
+        noop_null_rules = ["general number rule 4", "general date rule 5", "general rule 5"]
+        if business_rule in noop_null_rules:
+            return "MATCH"
+        # For non-noop rules with NULL source (e.g., flag rules):
+        # Source is intentionally NULL — just check if the rule keywords match in DBT
+        if business_rule:
+            rule_pattern = GENERAL_RULE_PATTERNS.get(business_rule)
+            if rule_pattern:
+                keywords = rule_pattern["keywords"]
+                if all(kw.lower() in dbt_lower for kw in keywords):
+                    return "MATCH"
+            # Target column in DBT is enough for source confirmation when source is NULL
+            if target_col_name and target_col_name.lower() in dbt_lower:
+                return "MATCH"
+        return "MISMATCH"
+
+    # --- CHECK 1: Source column match (strict) ---
+    # Extract actual source column references from STM (table.column patterns)
+    source_match = False
+    target_col = _normalize_stm_name(stm_col.get("target_column", ""))
+    stm_col_refs = re.findall(r"(\w+)\.(\w+)", stm_source)
+
+    if stm_col_refs:
+        # Must find at least one actual source column (not alias) in DBT
+        for table_alias, col_name in stm_col_refs:
+            if col_name.upper() == target_col:
+                continue
+            if col_name.lower() in dbt_lower:
+                source_match = True
+                break
+        # Fallback: DBT cleansing layer references the target column name
+        # (source mapping happens in an earlier CTE)
+        if not source_match and target_col and target_col.lower() in dbt_lower:
+            source_match = True
+    elif stm_source:
+        # Clean leading commas/spaces and check if it's constants/variables
+        stm_cleaned = stm_source.lstrip(", ")
+        if stm_cleaned.startswith("@") or stm_cleaned.startswith("'") or "@" in stm_source:
+            # Resolve @variables from the transformation/FROM/WHERE field
+            transformation = stm_col.get("transformation", "")
+            var_values = _resolve_stm_variables(stm_source, transformation)
+            if var_values:
+                # Check if resolved values appear in DBT expression
+                source_match = all(val.lower() in dbt_lower for val in var_values)
+            else:
+                # Can't resolve — accept if target column appears in DBT
+                source_match = target_col and target_col.lower() in dbt_lower
+        else:
+            source_match = stm_source.lower() in dbt_lower
+    else:
+        source_match = True
+
+    if not source_match:
+        return "MISMATCH"
+
+    # --- CHECK 2: Cleansing rule match (strict — ALL keywords must appear) ---
+    # No-op rules ("ISNULL then NULL") — a simple column passthrough is valid
+    noop_rules = ["general number rule 4", "general date rule 5", "general rule 5"]
+    if business_rule in noop_rules:
+        return "MATCH"
+
+    if business_rule:
+        rule_pattern = GENERAL_RULE_PATTERNS.get(business_rule)
+        if rule_pattern:
+            keywords = rule_pattern["keywords"]
+            # ALL keywords must be present in DBT expression
+            rule_match = all(kw.lower() in dbt_lower for kw in keywords)
+        else:
+            # Unknown rule — can't verify, fail
+            rule_match = False
+    else:
+        rule_match = True
+
+    if not rule_match:
+        return "MISMATCH"
+
+    return "MATCH"
+
+
+def _compare_single_column(stm_col: dict, dbt_col: dict, jinja_metadata: dict, cleansing_map: dict, compiled_expressions: dict) -> dict:
+    """Compare a matched STM-DBT column pair."""
+    stm_type = _normalize_type(stm_col.get("data_type", ""))
+    dbt_type = dbt_col.get("datatype", "-")
+    expression = dbt_col.get("expression", "")
+    col_name = dbt_col.get("column_name", "").upper()
+
+    if dbt_type == "-" and cleansing_map and col_name in cleansing_map:
+        dbt_type = cleansing_map[col_name]
+
+    if dbt_type == "-":
+        dbt_type = _infer_type_from_expression(expression)
+
+    if dbt_type in ("NULL", "-") and re.match(r"^null(\s+as\s+\w+)?$", expression.strip(), re.IGNORECASE):
+        dbt_type = "NULL"
+
+    datatype_comparison = _compare_datatypes(stm_type, dbt_type)
+    column_name_compare = _compare_column_names(stm_col["target_column"], dbt_col["column_name"])
+
+    stm_scd = stm_col.get("scd_type", "")
+    dbt_scd = dbt_col.get("scd_type", "")
+    scd_comparison = _compare_scd_types(stm_scd, dbt_scd)
+
+    stm_logic = _build_stm_logic(stm_col)
+    dbt_logic_full = compiled_expressions.get(col_name, "-") or "-"
+    dbt_logic = _get_compiled_expression(col_name, compiled_expressions)
+    logic_comparison = _compare_logic(stm_col, dbt_logic_full)
+
+    has_mismatch = ("MISMATCH" in column_name_compare or datatype_comparison == "MISMATCH"
+                    or scd_comparison == "MISMATCH" or logic_comparison == "MISMATCH")
+    overall_status = "MISMATCH" if has_mismatch else "MATCH"
+    suggestion = "Reverify" if has_mismatch else "No action required"
+
+    return {
+        "stm_column": stm_col["target_column"],
+        "dbt_column": dbt_col["column_name"],
+        "column_name_compare": column_name_compare,
+        "stm_datatype": stm_col.get("data_type", ""),
+        "dbt_datatype": dbt_type,
+        "datatype_comparison": datatype_comparison,
+        "stm_scd_type": stm_scd,
+        "dbt_scd_type": dbt_scd,
+        "scd_comparison": scd_comparison,
+        "stm_logic": stm_logic,
+        "dbt_logic": dbt_logic,
+        "logic_comparison": logic_comparison,
+        "suggestion": suggestion,
+        "status": overall_status,
+    }
+
+
+def _name_mismatch_result(stm_col: dict, dbt_col: dict, jinja_metadata: dict, cleansing_map: dict, compiled_expressions: dict) -> dict:
     """Build result for columns with same expression but different names."""
     stm_type = _normalize_type(stm_col.get("data_type", ""))
     dbt_type = dbt_col.get("datatype", "-")
@@ -137,6 +352,10 @@ def _name_mismatch_result(stm_col: dict, dbt_col: dict, jinja_metadata: dict, cl
         dbt_type = "NULL"
 
     datatype_comparison = _compare_datatypes(stm_type, dbt_type)
+    stm_logic = _build_stm_logic(stm_col)
+    dbt_logic_full = compiled_expressions.get(col_name, "-") or "-"
+    dbt_logic = _get_compiled_expression(col_name, compiled_expressions)
+    logic_comparison = _compare_logic(stm_col, dbt_logic_full)
 
     return {
         "stm_column": stm_col["target_column"],
@@ -148,10 +367,50 @@ def _name_mismatch_result(stm_col: dict, dbt_col: dict, jinja_metadata: dict, cl
         "stm_scd_type": stm_col.get("scd_type", ""),
         "dbt_scd_type": dbt_col.get("scd_type", ""),
         "scd_comparison": _compare_scd_types(stm_col.get("scd_type", ""), dbt_col.get("scd_type", "")),
-        "column_logic": "Mapped as per STM (renamed)",
-        "transformation_logic": _detect_transformation(expression, jinja_metadata),
-        "source_expression": _build_source_expression(expression, dbt_col),
-        "suggestion": "Review - column name differs between STM and DBT",
+        "stm_logic": stm_logic,
+        "dbt_logic": dbt_logic,
+        "logic_comparison": logic_comparison,
+        "suggestion": "Reverify",
+        "status": "MISMATCH",
+    }
+
+
+def _missing_in_dbt(stm_col: dict) -> dict:
+    return {
+        "stm_column": stm_col["target_column"],
+        "dbt_column": "-",
+        "column_name_compare": "NOT FOUND in DBT",
+        "stm_datatype": stm_col.get("data_type", ""),
+        "dbt_datatype": "-",
+        "datatype_comparison": "MISMATCH",
+        "stm_scd_type": stm_col.get("scd_type", ""),
+        "dbt_scd_type": "-",
+        "scd_comparison": "MISMATCH",
+        "stm_logic": _build_stm_logic(stm_col),
+        "dbt_logic": "-",
+        "logic_comparison": "MISMATCH",
+        "suggestion": "Reverify",
+        "status": "MISMATCH",
+    }
+
+
+def _extra_in_dbt(dbt_col: dict, compiled_expressions: dict) -> dict:
+    col_name = dbt_col.get("column_name", "").upper()
+    dbt_logic = _get_compiled_expression(col_name, compiled_expressions)
+    return {
+        "stm_column": "-",
+        "dbt_column": dbt_col["column_name"],
+        "column_name_compare": "NOT FOUND in STM",
+        "stm_datatype": "-",
+        "dbt_datatype": dbt_col.get("datatype", "-"),
+        "datatype_comparison": "MISMATCH",
+        "stm_scd_type": "-",
+        "dbt_scd_type": dbt_col.get("scd_type", ""),
+        "scd_comparison": "MISMATCH",
+        "stm_logic": "-",
+        "dbt_logic": dbt_logic,
+        "logic_comparison": "MISMATCH",
+        "suggestion": "Reverify",
         "status": "MISMATCH",
     }
 
@@ -170,62 +429,8 @@ def _build_cleansing_map(jinja_metadata: dict) -> dict:
     return col_type_map
 
 
-def _compare_single_column(stm_col: dict, dbt_col: dict, jinja_metadata: dict, cleansing_map: dict = None) -> dict:
-    """Compare a matched STM-DBT column pair."""
-    stm_type = _normalize_type(stm_col.get("data_type", ""))
-    dbt_type = dbt_col.get("datatype", "-")
-    expression = dbt_col.get("expression", "")
-    col_name = dbt_col.get("column_name", "").upper()
-
-    if dbt_type == "-" and cleansing_map and col_name in cleansing_map:
-        dbt_type = cleansing_map[col_name]
-
-    if dbt_type == "-":
-        dbt_type = _infer_type_from_expression(expression)
-
-    if dbt_type in ("NULL", "-") and re.match(r"^null(\s+as\s+\w+)?$", expression.strip(), re.IGNORECASE):
-        dbt_type = "NULL"
-
-    datatype_comparison = _compare_datatypes(stm_type, dbt_type)
-    transformation_logic = _detect_transformation(expression, jinja_metadata)
-    source_expression = _build_source_expression(expression, dbt_col)
-    column_logic = _determine_column_logic(stm_col, dbt_col, expression)
-    suggestion = _generate_suggestion(datatype_comparison, column_logic, transformation_logic)
-
-    column_name_compare = _compare_column_names(stm_col["target_column"], dbt_col["column_name"])
-
-    if "MISMATCH" in column_name_compare:
-        suggestion = "Review - column name mismatch: " + column_name_compare
-
-    stm_scd = stm_col.get("scd_type", "")
-    dbt_scd = dbt_col.get("scd_type", "")
-    scd_comparison = _compare_scd_types(stm_scd, dbt_scd)
-
-    overall_status = "MISMATCH" if ("MISMATCH" in column_name_compare or datatype_comparison == "MISMATCH" or scd_comparison == "MISMATCH") else "MATCH"
-
-    if scd_comparison == "MISMATCH" and "MISMATCH" not in column_name_compare and datatype_comparison != "MISMATCH":
-        suggestion = f"Review - SCD type mismatch: STM={stm_scd or '-'} vs DBT={dbt_scd or '-'}"
-
-    return {
-        "stm_column": stm_col["target_column"],
-        "dbt_column": dbt_col["column_name"],
-        "column_name_compare": column_name_compare,
-        "stm_datatype": stm_col.get("data_type", ""),
-        "dbt_datatype": dbt_type,
-        "datatype_comparison": datatype_comparison,
-        "stm_scd_type": stm_scd,
-        "dbt_scd_type": dbt_scd,
-        "scd_comparison": scd_comparison,
-        "column_logic": column_logic,
-        "transformation_logic": transformation_logic,
-        "source_expression": source_expression,
-        "suggestion": suggestion,
-        "status": overall_status,
-    }
-
-
 def _compare_column_names(stm_name: str, dbt_name: str) -> str:
-    """Compare STM and DBT column names and explain the relationship."""
+    """Compare STM and DBT column names."""
     stm_clean = _normalize_stm_name(stm_name)
     dbt_clean = dbt_name.upper().strip()
 
@@ -263,52 +468,12 @@ def _compare_scd_types(stm_scd: str, dbt_scd: str) -> str:
     return "MISMATCH"
 
 
-def _missing_in_dbt(stm_col: dict) -> dict:
-    return {
-        "stm_column": stm_col["target_column"],
-        "dbt_column": "-",
-        "column_name_compare": "NOT FOUND in DBT",
-        "stm_datatype": stm_col.get("data_type", ""),
-        "dbt_datatype": "-",
-        "datatype_comparison": "MISMATCH",
-        "stm_scd_type": stm_col.get("scd_type", ""),
-        "dbt_scd_type": "-",
-        "scd_comparison": "MISMATCH",
-        "column_logic": "Column missing in DBT",
-        "transformation_logic": "-",
-        "source_expression": "-",
-        "suggestion": "Review - column not found in DBT model",
-        "status": "MISMATCH",
-    }
-
-
-def _extra_in_dbt(dbt_col: dict) -> dict:
-    return {
-        "stm_column": "-",
-        "dbt_column": dbt_col["column_name"],
-        "column_name_compare": "NOT FOUND in STM",
-        "stm_datatype": "-",
-        "dbt_datatype": dbt_col.get("datatype", "-"),
-        "datatype_comparison": "MISMATCH",
-        "stm_scd_type": "-",
-        "dbt_scd_type": dbt_col.get("scd_type", ""),
-        "scd_comparison": "MISMATCH",
-        "column_logic": "Extra column not in STM",
-        "transformation_logic": _detect_transformation(dbt_col.get("expression", ""), {}),
-        "source_expression": _build_source_expression(dbt_col.get("expression", ""), dbt_col),
-        "suggestion": "Review - column exists in DBT but not documented in STM",
-        "status": "MISMATCH",
-    }
-
-
 def _normalize_type(dtype: str) -> str:
     if not dtype:
         return ""
     dtype = dtype.strip().lower()
     dtype = re.sub(r"\s+", "", dtype)
     return dtype
-
-
 
 
 def _compare_datatypes(stm_type: str, dbt_type: str) -> str:
@@ -345,101 +510,8 @@ def _compare_datatypes(stm_type: str, dbt_type: str) -> str:
     return "MISMATCH"
 
 
-def _detect_transformation(expression: str, jinja_metadata: dict) -> str:
-    if not expression:
-        return "Unknown"
-
-    expr_lower = expression.lower().strip()
-
-    if expr_lower == "null" or expr_lower.startswith("null"):
-        return "NULL Placeholder"
-
-    macros_used = jinja_metadata.get("macros_used", {}) if jinja_metadata else {}
-    for macro_name in macros_used:
-        if macro_name in MACRO_BUSINESS_RULES:
-            return MACRO_BUSINESS_RULES[macro_name]
-
-    if re.search(r"\bcoalesce\s*\(", expr_lower):
-        return "COALESCE"
-
-    if re.search(r"\bcast\s*\(", expr_lower):
-        return "Type Cast"
-
-    if re.search(r"\bcase\s+", expr_lower):
-        return "CASE Logic"
-
-    if "||" in expression or re.search(r"\bconcat\s*\(", expr_lower):
-        return "String Concatenation"
-
-    if re.search(r"^\w+\.\w+$", expr_lower):
-        return "Direct Pass-through"
-
-    if re.search(r"\b(sum|count|avg|max|min)\s*\(", expr_lower):
-        return "Mixed Operations"
-
-    return "Direct Pass-through"
-
-
-def _build_source_expression(expression: str, dbt_col: dict) -> str:
-    if not expression:
-        return "N/A"
-
-    if re.match(r"^null(\s+as\s+\w+)?$", expression.strip(), re.IGNORECASE):
-        return "NULL"
-
-    if len(expression) > 150:
-        return expression[:147] + "..."
-
-    return expression
-
-
-def _extract_inner_source_column(expression: str) -> str:
-    """Extract the actual source column from cleansing wrappers like coalesce(nullif(ltrim(cast(src.X as varchar)),''),' ')."""
-    match = re.search(r"(?:src|source|polper|job|capp|a|b)\.\w+", expression, re.IGNORECASE)
-    if match:
-        return match.group(0)
-
-    match = re.search(r"cast\s*\(\s*(\w+\.\w+)", expression, re.IGNORECASE)
-    if match:
-        return match.group(1)
-
-    return ""
-
-
-def _detect_cleansing_rule(expression: str) -> str:
-    """Detect which cleansing rule is applied from the expression pattern."""
-    expr_lower = expression.lower()
-
-    if re.search(r"coalesce\s*\(.*?,\s*'nokey'\s*\)", expr_lower):
-        return "VARCHAR_NOKEY"
-    if re.search(r"coalesce\s*\(.*?,\s*' '\s*\)", expr_lower):
-        return "VARCHAR_SINGLESPACE"
-    if re.search(r"coalesce\s*\(.*?,\s*'\?'\s*\)", expr_lower):
-        return "VARCHAR_QUESTION"
-    if re.search(r"coalesce\s*\(.*?,\s*0\s*\)", expr_lower):
-        return "NUMERIC_ZERO"
-    if "case.*then 'y'.*then 'n'" in expr_lower.replace('\n', ' '):
-        return "VARCHAR_FLAG_Y_N_U"
-    if re.search(r"case\s+when.*'y'.*'n'.*'u'", expr_lower, re.DOTALL):
-        return "VARCHAR_FLAG_Y_N_U"
-
-    return ""
-
-
-def _determine_column_logic(stm_col: dict, dbt_col: dict, expression: str) -> str:
-    expr_lower = expression.lower().strip() if expression else ""
-
-    if re.match(r"^null(\s+as\s+\w+)?$", expr_lower):
-        stm_transform = stm_col.get("transformation", "").lower()
-        if "not applicable" in stm_transform or "n/a" in stm_transform:
-            return f"Intentional NULL (Not applicable)"
-        return "Intentional NULL"
-
-    return "Mapped as per STM"
-
-
 def _infer_type_from_expression(expression: str) -> str:
-    """Infer datatype only from m_cleansing logic and SQL expression syntax. No column name guessing."""
+    """Infer datatype from SQL expression syntax."""
     if not expression:
         return "-"
 
@@ -466,19 +538,3 @@ def _infer_type_from_expression(expression: str) -> str:
         return "NUMBER"
 
     return "-"
-
-
-def _generate_suggestion(datatype_comparison: str, column_logic: str, transformation: str) -> str:
-    if datatype_comparison == "MATCH":
-        return "No action required"
-
-    if "missing in DBT" in column_logic.lower():
-        return "Review - column not found in DBT model"
-
-    if "not in STM" in column_logic.lower():
-        return "Review - column exists in DBT but not documented in STM"
-
-    if transformation == "NULL Placeholder":
-        return "Review datatype compatibility"
-
-    return "Review datatype compatibility"

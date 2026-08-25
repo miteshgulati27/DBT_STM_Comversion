@@ -1,10 +1,21 @@
 let state = {
     currentStep: 1,
     selectedLob: null,
+    selectedLobName: null,
     models: [],
     results: {},
-    currentModel: null
+    currentModel: null,
+    lobs: []
 };
+
+const LOB_COLORS = [
+    { bg: 'bg-blue-900', text: 'text-blue-300' },
+    { bg: 'bg-emerald-900', text: 'text-emerald-300' },
+    { bg: 'bg-purple-900', text: 'text-purple-300' },
+    { bg: 'bg-amber-900', text: 'text-amber-300' },
+    { bg: 'bg-rose-900', text: 'text-rose-300' },
+    { bg: 'bg-teal-900', text: 'text-teal-300' },
+];
 
 // --- On page load: always start fresh at Step 1 ---
 document.addEventListener('DOMContentLoaded', async () => {
@@ -16,29 +27,52 @@ async function loadLobInfo() {
     try {
         const resp = await fetch('/api/lobs');
         const data = await resp.json();
-        for (const lob of data.lobs) {
-            const el = document.getElementById(`${lob.id}-info`);
-            if (el) {
-                el.textContent = `STM: ${lob.stm_file} | SQL: ${lob.sql_count} models`;
-                el.className = 'text-xs text-green-400';
-            }
-        }
+        state.lobs = data.lobs;
+        renderLobCards(data.lobs);
     } catch (e) {
         console.error('Failed to load LOB info', e);
+        document.getElementById('lob-cards-container').innerHTML =
+            '<p class="text-red-400">Failed to load LOBs. Check server connection.</p>';
     }
 }
 
-// --- Step 1: Select LOB ---
-async function selectLob(lob) {
-    state.selectedLob = lob;
+function renderLobCards(lobs) {
+    const container = document.getElementById('lob-cards-container');
+    if (!lobs || lobs.length === 0) {
+        container.innerHTML = '<p class="text-slate-400">No LOBs configured. Add entries to data/mappings/lob_config.json</p>';
+        return;
+    }
+    container.innerHTML = lobs.map((lob, i) => {
+        const color = LOB_COLORS[i % LOB_COLORS.length];
+        return `
+        <div class="lob-card border-2 border-slate-600 rounded-xl p-6 cursor-pointer hover:border-cyan-500 hover:bg-slate-900/50 transition"
+             onclick="selectLob('${lob.id}', this)">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 ${color.bg} rounded-lg flex items-center justify-center">
+                    <span class="text-xl font-bold ${color.text}">${lob.short_name}</span>
+                </div>
+                <div>
+                    <p class="font-semibold text-white text-lg">${lob.name}</p>
+                    <p class="text-sm text-slate-400">${lob.description || ''}</p>
+                </div>
+            </div>
+            <div class="text-xs text-green-400">STM: ${lob.stm_file} | SQL: ${lob.sql_count} models</div>
+        </div>`;
+    }).join('');
+}
 
-    // Highlight selected card
+// --- Step 1: Select LOB ---
+async function selectLob(lob, cardEl) {
+    state.selectedLob = lob;
+    const lobData = state.lobs.find(l => l.id === lob);
+    state.selectedLobName = lobData ? lobData.name : lob.toUpperCase();
+
     document.querySelectorAll('.lob-card').forEach(card => {
         card.classList.remove('border-cyan-500', 'bg-slate-900/50');
         card.classList.add('border-slate-600');
     });
-    event.currentTarget.classList.remove('border-slate-600');
-    event.currentTarget.classList.add('border-cyan-500', 'bg-slate-900/50');
+    cardEl.classList.remove('border-slate-600');
+    cardEl.classList.add('border-cyan-500', 'bg-slate-900/50');
 
     await loadModelsForLob(lob);
 }
@@ -97,8 +131,7 @@ function backToModels() {
 // --- Step 2: Model List ---
 function renderModelList() {
     const container = document.getElementById('model-list');
-    const lobLabel = state.selectedLob === 'bop' ? 'Business Owners Policy' : 'Commercial Auto';
-    document.getElementById('selected-lob-label').textContent = lobLabel;
+    document.getElementById('selected-lob-label').textContent = state.selectedLobName || state.selectedLob;
     document.getElementById('model-count').textContent = `${state.models.length} models available`;
 
     if (state.models.length === 0) {
@@ -138,6 +171,16 @@ async function selectAndCompare(modelName) {
         return;
     }
 
+    state.currentModel = modelName;
+
+    if (!model.stm_tab) {
+        // No STM mapping — show code-only view (SQL + Compiled tabs only)
+        state.results = {};
+        goToStep(3);
+        renderCodeOnlyView(modelName);
+        return;
+    }
+
     showLoading('Running comparison...', `Model: ${modelName}`);
     try {
         const resp = await fetch('/api/compare', {
@@ -154,7 +197,6 @@ async function selectAndCompare(modelName) {
         }
 
         state.results = data.results;
-        state.currentModel = modelName;
         hideLoading();
         goToStep(3);
         renderResults();
@@ -162,6 +204,21 @@ async function selectAndCompare(modelName) {
         hideLoading();
         alert('Error: ' + e.message);
     }
+}
+
+function renderCodeOnlyView(modelName) {
+    document.getElementById('results-subtitle').textContent = `Model: ${modelName} | No STM mapping`;
+
+    // Hide comparison and STM tab buttons
+    document.getElementById('view-tab-comparison').style.display = 'none';
+    document.getElementById('view-tab-stm').style.display = 'none';
+
+    // Show code tab buttons
+    document.getElementById('view-tab-sql').style.display = '';
+    document.getElementById('view-tab-compiled').style.display = '';
+
+    // Default to SQL Code view
+    switchView('sql');
 }
 
 // --- Compare All ---
@@ -200,6 +257,12 @@ async function runComparison(mode) {
 
 // --- Step 3: Results ---
 function renderResults() {
+    // Restore all tabs/elements (in case we came from a code-only view)
+    document.getElementById('view-tab-comparison').style.display = '';
+    document.getElementById('view-tab-stm').style.display = '';
+    document.getElementById('view-tab-sql').style.display = '';
+    document.getElementById('view-tab-compiled').style.display = '';
+
     const modelNames = Object.keys(state.results);
 
     const tabsContainer = document.getElementById('model-tabs');
@@ -212,6 +275,7 @@ function renderResults() {
         tabsContainer.classList.add('hidden');
     }
 
+    switchView('comparison');
     renderModelResults(state.currentModel);
 }
 
@@ -253,6 +317,8 @@ function renderTable(rows, filter = 'all') {
         const colCompareClass = colCompare.startsWith('MATCH') ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300';
         const scdCompare = row.scd_comparison || '-';
         const scdClass = scdCompare === 'MATCH' ? 'bg-green-900 text-green-300' : (scdCompare === 'MISMATCH' ? 'bg-red-900 text-red-300' : 'text-slate-400');
+        const logicCompare = row.logic_comparison || '-';
+        const logicClass = logicCompare === 'MATCH' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300';
         return `
         <tr class="border-b border-slate-800 hover:bg-slate-900/50">
             <td class="px-4 py-3 font-medium text-white">${row.stm_column || '-'}</td>
@@ -276,35 +342,43 @@ function renderTable(rows, filter = 'all') {
                     ${scdCompare}
                 </span>
             </td>
-            <td class="px-4 py-3 text-slate-300 text-xs">${row.column_logic || '-'}</td>
-            <td class="px-4 py-3 text-slate-300 text-xs">${row.transformation_logic || '-'}</td>
-            <td class="px-4 py-3 text-slate-300 text-xs font-mono">${row.source_expression || '-'}</td>
+            <td class="px-4 py-3 text-slate-300 text-xs">${row.stm_logic || '-'}</td>
+            <td class="px-4 py-3 text-slate-300 text-xs font-mono">${row.dbt_logic || '-'}</td>
+            <td class="px-4 py-3">
+                <span class="px-2 py-0.5 text-xs font-medium rounded ${logicClass}">
+                    ${logicCompare}
+                </span>
+            </td>
             <td class="px-4 py-3 text-xs ${row.suggestion === 'No action required' ? 'text-green-400' : 'text-amber-400'}">${row.suggestion || '-'}</td>
         </tr>`;
     }).join('');
 }
 
-function filterResults(filter) {
+function filterResults(filter, clickedBtn) {
     document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.className = 'filter-btn px-3 py-1 text-sm rounded-lg ' +
-            (btn.textContent.toLowerCase().includes(filter.toLowerCase()) || (filter === 'all' && btn.textContent === 'All')
-                ? 'bg-cyan-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600');
+        btn.className = 'filter-btn px-3 py-1 text-sm rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600';
     });
+    if (clickedBtn) {
+        clickedBtn.className = 'filter-btn px-3 py-1 text-sm rounded-lg bg-cyan-600 text-white';
+    }
     const result = state.results[state.currentModel];
     if (result && result.detailed) renderTable(result.detailed, filter);
 }
 
 // --- View Tabs (Comparison / STM / SQL / Compiled) ---
 function switchView(view) {
-    document.querySelectorAll('.view-tab').forEach(tab => {
-        tab.className = 'view-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200';
+    const allTabs = ['comparison', 'stm', 'sql', 'compiled'];
+    allTabs.forEach(t => {
+        const tabBtn = document.getElementById(`view-tab-${t}`);
+        if (tabBtn.style.display !== 'none') {
+            if (t === view) {
+                tabBtn.className = 'view-tab px-4 py-2 text-sm font-medium border-b-2 border-cyan-500 text-cyan-400';
+            } else {
+                tabBtn.className = 'view-tab px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200';
+            }
+        }
+        document.getElementById(`view-${t}`).classList.add('hidden');
     });
-    document.getElementById(`view-tab-${view}`).className = 'view-tab px-4 py-2 text-sm font-medium border-b-2 border-cyan-500 text-cyan-400';
-
-    document.getElementById('view-comparison').classList.add('hidden');
-    document.getElementById('view-stm').classList.add('hidden');
-    document.getElementById('view-sql').classList.add('hidden');
-    document.getElementById('view-compiled').classList.add('hidden');
     document.getElementById(`view-${view}`).classList.remove('hidden');
 
     if (view === 'stm') loadStmView();
@@ -322,6 +396,7 @@ async function loadStmView() {
         const data = await resp.json();
 
         info.textContent = `Tab: ${data.stm_tab || '?'} | ${data.columns.length} columns`;
+
         tbody.innerHTML = data.columns.map((col, i) => `
             <tr class="border-b border-slate-800 hover:bg-slate-900/50">
                 <td class="px-4 py-2 text-slate-500 text-xs">${i + 1}</td>
@@ -329,6 +404,7 @@ async function loadStmView() {
                 <td class="px-4 py-2 text-slate-300">${col.source_table || '-'}</td>
                 <td class="px-4 py-2 text-slate-300 text-xs font-mono">${col.source_column || '-'}</td>
                 <td class="px-4 py-2 text-slate-300">${col.data_type || '-'}</td>
+                <td class="px-4 py-2 text-slate-300 text-xs">${col.scd_type || '-'}</td>
                 <td class="px-4 py-2 text-slate-300 text-xs">${col.business_rule || '-'}</td>
             </tr>
         `).join('');
