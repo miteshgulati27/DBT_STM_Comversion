@@ -1,0 +1,72 @@
+SQL Model,STM Tab
+int_gwpc_ca_additionalintrst,CA Additional Interest
+int_gwpc_ca_condterm_dealer,CA Condition Term (Dealer)
+int_gwpc_ca_condterm_garagesvc,CA Condition Term (Garage Svc)
+int_gwpc_ca_condterm_juris,CA Condition Term (Juris)
+int_gwpc_ca_condterm_namedind,CA Condition Term (Named Ind)
+int_gwpc_ca_condterm_policyline,CA Condition Term (Policy Line)
+int_gwpc_ca_condterm_privpas,CA Condition Term (Veh - PP)
+int_gwpc_ca_condterm_publictrans,CA Condition Term (Veh - PT)
+int_gwpc_ca_condterm_specialtype,CA Condition Term (Veh - ST)
+int_gwpc_ca_condterm_truck,CA Coverage Term - truck copy 
+int_gwpc_ca_covgterm_dealer,CA Coverage Term (Dealer)
+int_gwpc_ca_covgterm_dealercovgsi,CA Coverage Term (DealerCovgSI)
+int_gwpc_ca_covgterm_garagesvc,CA Coverage Term (Garage Svc)
+int_gwpc_ca_covgterm_gscovgsi,CA Coverage Term (GSCovgSI)
+int_gwpc_ca_covgterm_juris,CA Coverage Term (Juris)
+int_gwpc_ca_covgterm_juriscovgsi,CA Coverage Term (JurisCovgSI)
+int_gwpc_ca_covgterm_linecovgsi,CA Coverage Term (LineCovgSI)
+int_gwpc_ca_covgterm_namedind,CA Coverage Term (Named Ind)
+int_gwpc_ca_covgterm_policyline,CA Coverage Term (Policy Line)
+int_gwpc_ca_covgterm_ppcovgsi,CA Coverage Term (PPCovgSI)
+int_gwpc_ca_covgterm_ptcovgsi,CA Coverage Term (PTCovgSI)
+int_gwpc_ca_covgterm_stcovgsi,CA Coverage Term (STCovgSI)
+int_gwpc_ca_covgterm_truckcovgsi,CA Coverage Term (TruckCovgSI)
+int_gwpc_ca_covgterm_privpas,CA Coverage Term (Veh - PP)
+int_gwpc_ca_covgterm_publictrans,CA Coverage Term (Veh - PT)
+int_gwpc_ca_covgterm_specialtype,CA Coverage Term (Veh - ST)
+int_gwpc_ca_covgterm_truck,CA Coverage Term - Truck copy
+int_gwpc_ca_covgterm_zonerated,CA Coverage Term (Veh - ZR)
+int_gwpc_ca_covgterm_zrcovgsi,CA Coverage Term (ZRCovgSI)
+int_gwpc_ca_dealer,CA Dealer
+int_gwpc_ca_driver,CA Driver
+int_gwpc_ca_exclterm_dealer,CA Exclusion Term (Dealer)
+int_gwpc_ca_exclterm_garagesvc,CA Exclusion Term (Garage Svc)
+int_gwpc_ca_exclterm_juris,CA Exclusion Term (Juris)
+int_gwpc_ca_exclterm_namedind,CA Exclusion Term (Named Ind)
+int_gwpc_ca_exclterm_policyline,CA Exclusion Term (Policy Line)
+int_gwpc_ca_exclterm_privpas,CA Exclusion Term (Veh - PP)
+int_gwpc_ca_exclterm_publictrans,CA Exclusion Term (Veh - PT)
+int_gwpc_ca_exclterm_specialtype,CA Exclusion Term (Veh - ST)
+int_gwpc_ca_exclterm_truck,CA Exclusion Term (Veh - Truck)
+int_gwpc_ca_garagesvc,CA Garage Service
+int_gwpc_ca_jurisdiction,CA Jurisdiction
+int_gwpc_ca_linesicond,CA Line Sched Item Condition
+int_gwpc_ca_modifier,CA Modifier
+int_gwpc_ca_ratefactor,CA Modifier Rate Factor
+int_gwpc_ca_namedind,CA Named Individual
+int_gwpc_ca_polline,CA Policy Line
+int_gwpc_ca_premtxn,CA Premium Transaction
+int_gwpc_ca_scheditem,CA Scheduled Item
+int_gwpc_ca_privpas_cvrbl,CA Vehicle (Private Passenger)
+int_gwpc_ca_publictrans_cvrbl,CA Vehicle (Public Transport)
+int_gwpc_ca_specialtype_cvrbl,CA Vehicle (Special Type)
+int_gwpc_ca_truck_cvrbl,CA Vehicle (Truck)
+int_gwpc_ca_zonerated_cvrbl,CA Vehicle (Zone Rated)
+int_gwpc_ca_condterm,
+int_gwpc_ca_covgterm,
+int_gwpc_ca_cvrbl,
+int_gwpc_ca_exclterm,
+int_gwpc_ca_scheditem_dealer_covg,
+int_gwpc_ca_scheditem_dealer_excl,
+int_gwpc_ca_scheditem_garagesvc_covg,
+int_gwpc_ca_scheditem_juris_covg,
+int_gwpc_ca_scheditem_juris_excl,
+int_gwpc_ca_scheditem_line_cond,
+int_gwpc_ca_scheditem_line_covg,
+int_gwpc_ca_scheditem_line_excl,
+int_gwpc_ca_scheditem_pp_covg,
+int_gwpc_ca_scheditem_pt_covg,
+int_gwpc_ca_scheditem_st_covg,
+int_gwpc_ca_scheditem_truck_covg,
+int_gwpc_ca_scheditem_zr_covg,

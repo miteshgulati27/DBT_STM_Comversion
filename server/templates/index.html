@@ -6,36 +6,8 @@
     <h2 class="text-2xl font-bold mb-2">Select Line of Business</h2>
     <p class="text-slate-400 mb-8">Choose which STM to compare against DBT code</p>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
-        <!-- BOP Card -->
-        <div class="lob-card border-2 border-slate-600 rounded-xl p-6 cursor-pointer hover:border-cyan-500 hover:bg-slate-900/50 transition"
-             onclick="selectLob('bop')">
-            <div class="flex items-center gap-4 mb-4">
-                <div class="w-12 h-12 bg-blue-900 rounded-lg flex items-center justify-center">
-                    <span class="text-xl font-bold text-blue-300">BP</span>
-                </div>
-                <div>
-                    <p class="font-semibold text-white text-lg">Business Owners Policy</p>
-                    <p class="text-sm text-slate-400">BOP Coverables</p>
-                </div>
-            </div>
-            <div class="text-xs text-slate-500" id="bop-info">Loading...</div>
-        </div>
-
-        <!-- CA Card -->
-        <div class="lob-card border-2 border-slate-600 rounded-xl p-6 cursor-pointer hover:border-cyan-500 hover:bg-slate-900/50 transition"
-             onclick="selectLob('ca')">
-            <div class="flex items-center gap-4 mb-4">
-                <div class="w-12 h-12 bg-emerald-900 rounded-lg flex items-center justify-center">
-                    <span class="text-xl font-bold text-emerald-300">CA</span>
-                </div>
-                <div>
-                    <p class="font-semibold text-white text-lg">Commercial Auto</p>
-                    <p class="text-sm text-slate-400">CA Coverables</p>
-                </div>
-            </div>
-            <div class="text-xs text-slate-500" id="ca-info">Loading...</div>
-        </div>
+    <div id="lob-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+        <div class="text-slate-400">Loading LOBs...</div>
     </div>
 </div>
 
@@ -68,7 +40,7 @@
 <div id="step-3" class="hidden fade-in">
     <div class="flex items-center justify-between mb-4">
         <div class="flex gap-3">
-            <button onclick="goToStep(2)" class="px-4 py-2 bg-slate-700 text-white text-sm font-semibold rounded-lg hover:bg-slate-600 transition">
+            <button onclick="backToModels()" class="px-4 py-2 bg-slate-700 text-white text-sm font-semibold rounded-lg hover:bg-slate-600 transition">
                 &larr; Back to Models
             </button>
             <button onclick="startOver()" class="px-4 py-2 bg-slate-700 text-white text-sm font-semibold rounded-lg hover:bg-slate-600 transition">
@@ -140,9 +112,9 @@
 
         <!-- Filter Bar -->
         <div class="flex gap-2 mb-4">
-            <button onclick="filterResults('all')" class="filter-btn px-3 py-1 text-sm rounded-lg bg-cyan-600 text-white">All</button>
-            <button onclick="filterResults('MATCH')" class="filter-btn px-3 py-1 text-sm rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600">Matching</button>
-            <button onclick="filterResults('MISMATCH')" class="filter-btn px-3 py-1 text-sm rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600">Not Matching</button>
+            <button onclick="filterResults('all', this)" class="filter-btn px-3 py-1 text-sm rounded-lg bg-cyan-600 text-white">All</button>
+            <button onclick="filterResults('MATCH', this)" class="filter-btn px-3 py-1 text-sm rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600">Matching</button>
+            <button onclick="filterResults('MISMATCH', this)" class="filter-btn px-3 py-1 text-sm rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600">Not Matching</button>
         </div>
 
         <!-- Results Table -->
@@ -159,9 +131,9 @@
                         <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">STM SCD</th>
                         <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">DBT SCD</th>
                         <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">SCD Compare</th>
-                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Column Logic</th>
-                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Transformation</th>
-                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Source Expression</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">STM Logic</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">DBT Logic</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Logic Compare</th>
                         <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Suggestion</th>
                     </tr>
                 </thead>
@@ -186,6 +158,7 @@
                         <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Source Table</th>
                         <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Source Column / Mapping</th>
                         <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Data Type</th>
+                        <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">SCD Type</th>
                         <th class="px-4 py-3 font-semibold text-slate-300 border-b border-slate-700">Business Rule</th>
                     </tr>
                 </thead>

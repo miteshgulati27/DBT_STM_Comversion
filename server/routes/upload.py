@@ -1,25 +1,13 @@
 import os
+import csv
 import shutil
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
-from server.config import STM_DIR, SQL_DIR, MACROS_DIR, ALLOWED_STM_EXTENSIONS, ALLOWED_SQL_EXTENSIONS
+from server.config import STM_DIR, SQL_DIR, MACROS_DIR, MAPPINGS_DIR, ALLOWED_STM_EXTENSIONS, ALLOWED_SQL_EXTENSIONS, LOB_CONFIG
 from services.excel_parser import parse_stm_workbook
 from services.model_matcher import match_models
 
 upload_bp = Blueprint("upload", __name__)
-
-LOB_CONFIG = {
-    "bop": {
-        "name": "Business Owners Policy",
-        "stm_file": "BOP_CVRBL_STM_1.xlsx",
-        "sql_folder": "bop",
-    },
-    "ca": {
-        "name": "Commercial Auto",
-        "stm_file": "Commercial Auto Data Specifications.xlsx",
-        "sql_folder": "ca",
-    },
-}
 
 
 @upload_bp.route("/lobs", methods=["GET"])
@@ -31,9 +19,12 @@ def list_lobs():
         sql_folder = SQL_DIR / config["sql_folder"]
         sql_count = len(list(sql_folder.glob("*.sql"))) if sql_folder.exists() else 0
 
+        short_name = "".join(w[0] for w in config["name"].split() if w).upper()
+
         lobs.append({
             "id": lob_id,
             "name": config["name"],
+            "short_name": short_name,
             "stm_file": config["stm_file"],
             "stm_exists": stm_path.exists(),
             "sql_count": sql_count,
@@ -43,27 +34,36 @@ def list_lobs():
 
 @upload_bp.route("/lobs/<lob_id>/models", methods=["GET"])
 def list_lob_models(lob_id):
-    """List models for a specific LOB."""
+    """List models for a specific LOB, driven by the mapping CSV."""
     if lob_id not in LOB_CONFIG:
         return jsonify({"error": f"Unknown LOB: {lob_id}"}), 400
 
     config = LOB_CONFIG[lob_id]
+    mapping_file = MAPPINGS_DIR / config["mapping_file"]
+
+    models = []
+    with open(mapping_file, "r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            sql_model = row["SQL Model"].strip()
+            stm_tab = row["STM Tab"].strip() if row["STM Tab"].strip() else None
+            models.append({
+                "model_name": sql_model,
+                "stm_tab": stm_tab,
+                "column_count": 0,
+                "has_sql": True,
+            })
+
+    # Enrich with actual column counts from STM
     stm_path = STM_DIR / config["stm_file"]
-    sql_folder = SQL_DIR / config["sql_folder"]
-
-    if not stm_path.exists():
-        return jsonify({"error": f"STM file not found: {config['stm_file']}"}), 404
-
-    if not sql_folder.exists():
-        return jsonify({"error": f"SQL folder not found: {config['sql_folder']}"}), 404
-
-    sql_filenames = [f.name for f in sql_folder.glob("*.sql")]
-
-    try:
-        stm_tabs = parse_stm_workbook(stm_path)
-        models = match_models(stm_tabs, sql_filenames)
-    except Exception as e:
-        return jsonify({"error": f"Error parsing: {str(e)}"}), 500
+    if stm_path.exists():
+        try:
+            stm_tabs = parse_stm_workbook(stm_path)
+            for model in models:
+                if model["stm_tab"] and model["stm_tab"] in stm_tabs:
+                    model["column_count"] = stm_tabs[model["stm_tab"]]["column_count"]
+        except Exception:
+            pass
 
     return jsonify({"lob": lob_id, "models": models})
 

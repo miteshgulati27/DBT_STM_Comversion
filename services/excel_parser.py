@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from openpyxl import load_workbook
 
@@ -12,10 +13,30 @@ KNOWN_HEADERS = {
 }
 
 
+SKIP_TABS = {
+    "domains", "table of contents", "instructions", "versions",
+    "template", "sample", "business rules", "conformed",
+    "reference", "audit", "coverable type master list",
+    "sheet1", "backward compatibility", "issues list",
+    "progress report", "cdc",
+}
+
+_stm_cache = {}
+CACHE_TTL = 300  # 5 minutes
+
+
 def parse_stm_workbook(stm_path: Path) -> dict:
+    cache_key = str(stm_path)
+    now = time.time()
+
+    if cache_key in _stm_cache and (now - _stm_cache[cache_key]["time"]) < CACHE_TTL:
+        return _stm_cache[cache_key]["tabs"]
+
     wb = load_workbook(str(stm_path), read_only=True, data_only=True)
     tabs = {}
     for sheet_name in wb.sheetnames:
+        if sheet_name.lower().strip() in SKIP_TABS:
+            continue
         ws = wb[sheet_name]
         headers = _detect_headers(ws)
         if headers and headers.get("target_column") is not None:
@@ -29,10 +50,18 @@ def parse_stm_workbook(stm_path: Path) -> dict:
                 "header_row": headers["_header_row"]
             }
     wb.close()
+
+    _stm_cache[cache_key] = {"time": now, "tabs": tabs}
     return tabs
 
 
 def get_tab_columns(stm_path: Path, tab_name: str) -> list:
+    cache_key = f"{stm_path}::{tab_name}"
+    now = time.time()
+
+    if cache_key in _stm_cache and (now - _stm_cache[cache_key]["time"]) < CACHE_TTL:
+        return _stm_cache[cache_key]["columns"]
+
     wb = load_workbook(str(stm_path), read_only=True, data_only=True)
     if tab_name not in wb.sheetnames:
         wb.close()
@@ -62,6 +91,8 @@ def get_tab_columns(stm_path: Path, tab_name: str) -> list:
         columns.append(col_data)
 
     wb.close()
+
+    _stm_cache[cache_key] = {"time": now, "columns": columns}
     return columns
 
 
