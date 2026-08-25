@@ -1,7 +1,6 @@
 SQL Model,STM Tab
 int_gwpc_bop_additionalintrst,BOP Additional Interest
 int_gwpc_bop_bldg,BOP Building
-int_gwpc_bop_classification_cvrbl,
 int_gwpc_bop_condterm,BOP Condition Term (1)
 int_gwpc_bop_condterm_polline,BOP Condition Term (1)
 int_gwpc_bop_covgterm,BOP Coverage Term (1)
@@ -10,7 +9,6 @@ int_gwpc_bop_covgterm_polline,BOP Coverage Term (3)
 int_gwpc_bop_covgterm_sblocation,BOP Coverage Term (2)
 int_gwpc_bop_exclterm,BOP Exclusion Term (1)
 int_gwpc_bop_exclterm_polline,BOP Exclusion Term (1)
-int_gwpc_bop_jurisdiction_cvrbl,
 int_gwpc_bop_modifier,BOP Modifier (1)
 int_gwpc_bop_polline,BOP Policy Line
 int_gwpc_bop_premtxn,BOP Premium Transaction

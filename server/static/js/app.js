@@ -213,6 +213,9 @@ function renderCodeOnlyView(modelName) {
     document.getElementById('view-tab-comparison').style.display = 'none';
     document.getElementById('view-tab-stm').style.display = 'none';
 
+    // Hide download buttons (no comparison = nothing to download)
+    document.getElementById('download-buttons').style.display = 'none';
+
     // Show code tab buttons
     document.getElementById('view-tab-sql').style.display = '';
     document.getElementById('view-tab-compiled').style.display = '';
@@ -262,6 +265,7 @@ function renderResults() {
     document.getElementById('view-tab-stm').style.display = '';
     document.getElementById('view-tab-sql').style.display = '';
     document.getElementById('view-tab-compiled').style.display = '';
+    document.getElementById('download-buttons').style.display = '';
 
     const modelNames = Object.keys(state.results);
 
