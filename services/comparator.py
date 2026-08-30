@@ -32,6 +32,33 @@ def _resolve_ref_model(sql_path: Path, sql_dir: Path) -> Path:
     return sql_path
 
 
+def _extract_business_mapping(cleaned_sql: str) -> dict:
+    """Extract column expressions from the business mapping CTE (the SELECT before _cleaned)."""
+    expressions = {}
+
+    cleaned_match = re.search(r"\w+_cleaned\s+AS\s*\(", cleaned_sql, re.IGNORECASE)
+    if not cleaned_match:
+        return expressions
+
+    before_cleaned = cleaned_sql[:cleaned_match.start()]
+    selects = list(re.finditer(r"\bSELECT\b", before_cleaned, re.IGNORECASE))
+    if not selects:
+        return expressions
+
+    last_select_pos = selects[-1].start()
+    select_block = before_cleaned[last_select_pos:]
+
+    try:
+        from services.sql_parser import parse_compiled_sql
+        parsed = parse_compiled_sql(select_block)
+        for col in parsed.get("columns", []):
+            expressions[col["column_name"].upper()] = col.get("expression", "")
+    except Exception:
+        pass
+
+    return expressions
+
+
 def run_comparison(model_name: str, stm_path: Path, sql_dir: Path, macros_dir: Path, stm_tab_override: str = None) -> dict:
     """Run full comparison for a single model."""
     stm_tabs = parse_stm_workbook(stm_path)
@@ -58,7 +85,17 @@ def run_comparison(model_name: str, stm_path: Path, sql_dir: Path, macros_dir: P
     dbt_columns = parsed_sql["columns"]
     jinja_metadata = parsed_sql["jinja_metadata"]
 
-    # Compile SQL (macro-expand) and extract per-column compiled expressions
+    # Business mapping expressions — extract from the CTE before _cleaned
+    dbt_source_expressions = _extract_business_mapping(parsed_sql["cleaned_sql"])
+
+    # Cleansing types per column (from jinja metadata)
+    cleansing_col_types = {}
+    for entry in jinja_metadata.get("macros_used", {}).get("m_cleansing", []):
+        if ":" in entry:
+            ctype, cname = entry.split(":", 1)
+            cleansing_col_types[cname.upper().strip()] = ctype.lower().strip()
+
+    # Compiled expressions (macro-expanded — cleansing layer)
     compiled_expressions = {}
     try:
         compiled_sql = compile_sql(resolved_path, macros_dir)
@@ -68,7 +105,7 @@ def run_comparison(model_name: str, stm_path: Path, sql_dir: Path, macros_dir: P
     except Exception:
         pass
 
-    detailed_results = compare_columns(stm_columns, dbt_columns, jinja_metadata, compiled_expressions)
+    detailed_results = compare_columns(stm_columns, dbt_columns, jinja_metadata, compiled_expressions, dbt_source_expressions, cleansing_col_types)
 
     summary = _build_summary(stm_columns, dbt_columns, detailed_results)
 

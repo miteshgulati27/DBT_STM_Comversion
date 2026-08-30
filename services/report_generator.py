@@ -18,10 +18,10 @@ def _create_detailed_sheet(wb: Workbook, detailed: list):
     ws.title = "Detailed Comparison"
 
     headers = [
-        "STM Column", "DBT Column", "Column Compare",
+        "Column Name in STM", "Column Name in DBT", "Column Name Comparision",
         "STM DataType", "DBT DataType", "DataType Compare",
         "STM SCD", "DBT SCD", "SCD Compare",
-        "STM Logic", "DBT Logic", "Logic Compare",
+        "STM Logic", "DBT Business Logic", "DBT Cleansing Rule Logic", "Logic Comparision",
         "Suggestion"
     ]
 
@@ -56,7 +56,8 @@ def _create_detailed_sheet(wb: Workbook, detailed: list):
             row_data.get("dbt_scd_type", ""),
             row_data.get("scd_comparison", ""),
             row_data.get("stm_logic", ""),
-            row_data.get("dbt_logic", ""),
+            row_data.get("dbt_business_logic", ""),
+            row_data.get("dbt_cleansing_rule", ""),
             row_data.get("logic_comparison", ""),
             row_data.get("suggestion", ""),
         ]
@@ -67,14 +68,14 @@ def _create_detailed_sheet(wb: Workbook, detailed: list):
             cell.alignment = Alignment(vertical="center", wrap_text=True)
 
         # Color code comparison columns
-        for compare_col in [3, 6, 9, 12]:
+        for compare_col in [3, 6, 9, 13]:
             cell = ws.cell(row=row_idx, column=compare_col)
             if cell.value and "MATCH" in str(cell.value) and "MISMATCH" not in str(cell.value):
                 cell.fill = match_fill
             elif cell.value and "MISMATCH" in str(cell.value):
                 cell.fill = mismatch_fill
 
-    col_widths = [20, 20, 28, 15, 15, 16, 10, 10, 14, 40, 40, 14, 20]
+    col_widths = [20, 20, 28, 15, 15, 16, 10, 10, 14, 40, 40, 30, 14, 20]
     for i, width in enumerate(col_widths, 1):
         col_letter = chr(64 + i) if i <= 26 else chr(64 + (i - 1) // 26) + chr(64 + (i - 1) % 26 + 1)
         ws.column_dimensions[col_letter].width = width

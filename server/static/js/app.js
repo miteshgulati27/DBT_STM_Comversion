@@ -347,7 +347,8 @@ function renderTable(rows, filter = 'all') {
                 </span>
             </td>
             <td class="px-4 py-3 text-slate-300 text-xs">${row.stm_logic || '-'}</td>
-            <td class="px-4 py-3 text-slate-300 text-xs font-mono">${row.dbt_logic || '-'}</td>
+            <td class="px-4 py-3 text-slate-300 text-xs font-mono">${row.dbt_business_logic || '-'}</td>
+            <td class="px-4 py-3 text-slate-300 text-xs">${row.dbt_cleansing_rule || '-'}</td>
             <td class="px-4 py-3">
                 <span class="px-2 py-0.5 text-xs font-medium rounded ${logicClass}">
                     ${logicCompare}
