@@ -213,6 +213,9 @@ function renderCodeOnlyView(modelName) {
     document.getElementById('view-tab-comparison').style.display = 'none';
     document.getElementById('view-tab-stm').style.display = 'none';
 
+    // Hide download buttons (no comparison = nothing to download)
+    document.getElementById('download-buttons').style.display = 'none';
+
     // Show code tab buttons
     document.getElementById('view-tab-sql').style.display = '';
     document.getElementById('view-tab-compiled').style.display = '';
@@ -262,6 +265,7 @@ function renderResults() {
     document.getElementById('view-tab-stm').style.display = '';
     document.getElementById('view-tab-sql').style.display = '';
     document.getElementById('view-tab-compiled').style.display = '';
+    document.getElementById('download-buttons').style.display = '';
 
     const modelNames = Object.keys(state.results);
 
@@ -343,7 +347,8 @@ function renderTable(rows, filter = 'all') {
                 </span>
             </td>
             <td class="px-4 py-3 text-slate-300 text-xs">${row.stm_logic || '-'}</td>
-            <td class="px-4 py-3 text-slate-300 text-xs font-mono">${row.dbt_logic || '-'}</td>
+            <td class="px-4 py-3 text-slate-300 text-xs font-mono">${row.dbt_business_logic || '-'}</td>
+            <td class="px-4 py-3 text-slate-300 text-xs">${row.dbt_cleansing_rule || '-'}</td>
             <td class="px-4 py-3">
                 <span class="px-2 py-0.5 text-xs font-medium rounded ${logicClass}">
                     ${logicCompare}

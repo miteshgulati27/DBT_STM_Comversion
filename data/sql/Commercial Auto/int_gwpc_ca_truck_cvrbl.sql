@@ -311,7 +311,8 @@ INT_CA_VEH_TRUCK_cleaned AS (
         {{ m_cleanse('VARCHAR_SINGLESPACE', 'PRVT_PSNGR_USE_CD') }} AS PRVT_PSNGR_USE_CD,
         {{ m_cleanse('VARCHAR_SINGLESPACE', 'PRVT_PSNGR_TYPE_CD') }} AS PRVT_PSNGR_TYPE_CD,
         {{ m_cleanse('VARCHAR_SINGLESPACE', 'BUS_USE_CL_CD') }} AS BUS_USE_CL_CD,
-        GVW_NO,
+        {{ m_cleanse('VARCHAR_SINGLESPACE', 'GVW_NO') }} AS GVW_NO,
+        
         {{ m_cleanse('VARCHAR_SINGLESPACE', 'TRUCK_RADIUS_CL_CD') }} AS TRUCK_RADIUS_CL_CD,
         {{ m_cleanse('VARCHAR_SINGLESPACE', 'TRUCK_SEC_CL_CD') }} AS TRUCK_SEC_CL_CD,
         {{ m_cleanse('VARCHAR_SINGLESPACE', 'SEC_CL_CD') }} AS SEC_CL_CD,

@@ -4,7 +4,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 
 def generate_xlsx(result: dict, output_path: Path):
-    """Generate a two-sheet .xlsx report matching the expected output format."""
+    """Generate a two-sheet .xlsx report matching the UI format."""
     wb = Workbook()
 
     _create_detailed_sheet(wb, result["detailed"])
@@ -18,11 +18,11 @@ def _create_detailed_sheet(wb: Workbook, detailed: list):
     ws.title = "Detailed Comparison"
 
     headers = [
-        "STM Column", "DBT Column", "Column Name Compare",
-        "STM DataType", "DBT DataType", "DataType Comparison",
-        "STM SCD Type", "DBT SCD Type", "SCD Comparison",
-        "Column Logic Compare", "Transformation Logic",
-        "Source Expression", "Suggestion"
+        "Column Name in STM", "Column Name in DBT", "Column Name Comparision",
+        "STM DataType", "DBT DataType", "DataType Compare",
+        "STM SCD", "DBT SCD", "SCD Compare",
+        "STM Logic", "DBT Business Logic", "DBT Cleansing Rule Logic", "Logic Comparision",
+        "Suggestion"
     ]
 
     header_font = Font(bold=True, color="FFFFFF")
@@ -55,9 +55,10 @@ def _create_detailed_sheet(wb: Workbook, detailed: list):
             row_data.get("stm_scd_type", ""),
             row_data.get("dbt_scd_type", ""),
             row_data.get("scd_comparison", ""),
-            row_data.get("column_logic", ""),
-            row_data.get("transformation_logic", ""),
-            row_data.get("source_expression", ""),
+            row_data.get("stm_logic", ""),
+            row_data.get("dbt_business_logic", ""),
+            row_data.get("dbt_cleansing_rule", ""),
+            row_data.get("logic_comparison", ""),
             row_data.get("suggestion", ""),
         ]
 
@@ -66,19 +67,15 @@ def _create_detailed_sheet(wb: Workbook, detailed: list):
             cell.border = thin_border
             cell.alignment = Alignment(vertical="center", wrap_text=True)
 
-        comparison_cell = ws.cell(row=row_idx, column=6)
-        if comparison_cell.value == "MATCH":
-            comparison_cell.fill = match_fill
-        elif comparison_cell.value == "MISMATCH":
-            comparison_cell.fill = mismatch_fill
+        # Color code comparison columns
+        for compare_col in [3, 6, 9, 13]:
+            cell = ws.cell(row=row_idx, column=compare_col)
+            if cell.value and "MATCH" in str(cell.value) and "MISMATCH" not in str(cell.value):
+                cell.fill = match_fill
+            elif cell.value and "MISMATCH" in str(cell.value):
+                cell.fill = mismatch_fill
 
-        scd_cell = ws.cell(row=row_idx, column=9)
-        if scd_cell.value == "MATCH":
-            scd_cell.fill = match_fill
-        elif scd_cell.value == "MISMATCH":
-            scd_cell.fill = mismatch_fill
-
-    col_widths = [20, 25, 28, 15, 15, 18, 10, 10, 15, 35, 20, 40, 30]
+    col_widths = [20, 20, 28, 15, 15, 16, 10, 10, 14, 40, 40, 30, 14, 20]
     for i, width in enumerate(col_widths, 1):
         col_letter = chr(64 + i) if i <= 26 else chr(64 + (i - 1) // 26) + chr(64 + (i - 1) % 26 + 1)
         ws.column_dimensions[col_letter].width = width
@@ -102,29 +99,15 @@ def _create_summary_sheet(wb: Workbook, summary: dict):
         ("Total STM Columns", summary.get("total_stm_columns", 0)),
         ("Total DBT Columns", summary.get("total_dbt_columns", 0)),
         ("Matched Columns", summary.get("matched_columns", 0)),
-        ("Missing in DBT", summary.get("missing_in_dbt", 0)),
-        ("Extra in DBT (Not in STM)", summary.get("extra_in_dbt", 0)),
-        ("Match Rate (%)", summary.get("match_rate", "0%")),
-        ("", ""),
-        ("Datatype Matches", summary.get("datatype_matches", 0)),
-        ("Datatype Mismatches", summary.get("datatype_mismatches", 0)),
-        ("", ""),
-        ("Transformation Types Used", ""),
+        ("Mismatched Columns", summary.get("datatype_mismatches", 0)),
+        ("Extra in DBT", summary.get("extra_in_dbt", 0)),
+        ("Match Rate", summary.get("match_rate", "0%")),
     ]
-
-    transformation_types = summary.get("transformation_types", {})
-    all_types = ["Direct Pass-through", "Type Cast", "String Concatenation",
-                 "CASE Logic", "COALESCE", "NULL Placeholder", "Mixed Operations"]
-
-    for t in all_types:
-        metrics.append((f"- {t}", transformation_types.get(t, 0)))
 
     for row_idx, (metric, value) in enumerate(metrics, 2):
         cell_a = ws.cell(row=row_idx, column=1, value=metric)
         cell_b = ws.cell(row=row_idx, column=2, value=value)
+        cell_a.font = bold_font
 
-        if metric and not metric.startswith("-") and metric != "":
-            cell_a.font = bold_font
-
-    ws.column_dimensions["A"].width = 30
+    ws.column_dimensions["A"].width = 25
     ws.column_dimensions["B"].width = 15

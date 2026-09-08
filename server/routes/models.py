@@ -88,17 +88,9 @@ def model_compiled(model_name):
 
     from server.config import MACROS_DIR
     from services.dbt_compiler import compile_sql
-    from services.comparator import _resolve_ref_model
 
     try:
-        resolved_path = _resolve_ref_model(sql_path, sql_dir)
-        compiled_content = compile_sql(resolved_path, MACROS_DIR)
-
-        if resolved_path != sql_path:
-            header = f"-- Source: {model_name}.sql resolves to {resolved_path.name}\n"
-            header += f"-- Original: {sql_path.read_text(encoding='utf-8').strip()}\n"
-            header += "-- Compiled sub-model shown below:\n\n"
-            compiled_content = header + compiled_content
+        compiled_content = compile_sql(sql_path, MACROS_DIR)
     except Exception as e:
         return jsonify({"error": f"Compilation error: {str(e)}"}), 500
 

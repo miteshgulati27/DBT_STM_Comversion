@@ -33,7 +33,7 @@
 
     {%- elif in_cleansing_name == 'VARCHAR_FLAG_UNKNOWN' -%}
 
-        (case when {{ in_column_nm }} is null or {{ in_column_nm }}='' then 'U' else TRIM({{ in_column_nm }}) end)
+        (case when {{ in_column_nm }} is null or {{ in_column_nm }}='' then 'N' else TRIM({{ in_column_nm }}) end)
 
     {%- elif in_cleansing_name == 'VARCHAR_FLAG_Y_N_U' -%}
 
